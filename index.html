@@ -1319,18 +1319,16 @@ function normalizeBook(raw){
 
 function normalizeNode(node, path, inheritedAbsoluteLayer = 1){
   const name = String(node.name || 'Untitled Book');
-  const key = String(
-    node.id
-      ? `id:${node.id}`
-      : `path:${[...path, name].join(' > ')}`
-  );
-
   const nextPath = [...path, name];
+
+  const key = `path:${nextPath.join(' > ')}`;
+  const runtimeId = String(node.id || key);
+
   const defer = Math.max(0, Math.floor(Number(deferByKey[key] ?? 0) || 0));
   const absoluteLayer = inheritedAbsoluteLayer;
 
   return {
-    id: String(node.id || key),
+    id: runtimeId,
     key,
     name,
     color: normalizeColor(node.color || '#6b7280'),
@@ -1339,7 +1337,17 @@ function normalizeNode(node, path, inheritedAbsoluteLayer = 1){
     originalLayer: path.length + 1,
     absoluteLayer,
     children: Array.isArray(node.children)
-      ? node.children.map(child => normalizeNode(child, nextPath, absoluteLayer + 1 + Math.max(0, Math.floor(Number(deferByKey[String(child.id ? `id:${child.id}` : `path:${[...nextPath, String(child.name || 'Untitled Book')].join(' > ')}`)] ?? 0) || 0))))
+      ? node.children.map(child => {
+          const childName = String(child.name || 'Untitled Book');
+          const childPathKey = `path:${[...nextPath, childName].join(' > ')}`;
+          const childDefer = Math.max(0, Math.floor(Number(deferByKey[childPathKey] ?? 0) || 0));
+
+          return normalizeNode(
+            child,
+            nextPath,
+            absoluteLayer + 1 + childDefer
+          );
+        })
       : []
   };
 }
