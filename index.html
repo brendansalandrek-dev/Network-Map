@@ -564,12 +564,18 @@ svg{
       </label>
 
       <label class="ringGapRow">
-        <span>Angular spacing</span>
-        <input id="angularSpacingInput" type="number" min="0" step="1" value="6" />
-        <span class="ringGapHint">Default 6°</span>
+        <span>Node size %</span>
+        <input id="nodeScaleInput" type="number" min="25" max="200" step="5" value="50" />
+        <span class="ringGapHint">100 = old size</span>
       </label>
 
-      <div id="layerCounts" class="treeList">Load a book export to see node counts by display layer here.</div>      <div id="layerColorControls" class="layerColorControls"></div>
+      <label class="optionRow">
+        <input id="ignoreDeferInput" type="checkbox" />
+        <span>Ignore defer</span>
+      </label>
+
+      <div id="layerCounts" class="treeList">Load a book export to see node counts by display layer here.</div>
+      <div id="layerColorControls" class="layerColorControls"></div>
     </div>
   </aside>
 
@@ -631,7 +637,8 @@ const PRINT_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.printScale.v1';
 const FOCUS_FADE_STORAGE_KEY = 'mindLibraryNetworkMap.focusFade.v1';
 const LAYER_LOCK_STORAGE_KEY = 'mindLibraryNetworkMap.layerLock.v1';
 const FOCUS_EXTEND_STORAGE_KEY = 'mindLibraryNetworkMap.focusExtend.v1';
-const ANGULAR_SPACING_STORAGE_KEY = 'mindLibraryNetworkMap.angularSpacing.v1';
+const NODE_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.nodeScale.v1';
+const IGNORE_DEFER_STORAGE_KEY = 'mindLibraryNetworkMap.ignoreDefer.v1';
 const BOOK_STORAGE_KEY = 'mindLibraryNetworkMap.book.v1';
 
 const fileInput = document.getElementById('fileInput');
@@ -655,7 +662,8 @@ const printScaleInput = document.getElementById('printScaleInput');
 const focusFadeInput = document.getElementById('focusFadeInput');
 const layerLockInput = document.getElementById('layerLockInput');
 const focusExtendInput = document.getElementById('focusExtendInput');
-const angularSpacingInput = document.getElementById('angularSpacingInput');
+const nodeScaleInput = document.getElementById('nodeScaleInput');
+const ignoreDeferInput = document.getElementById('ignoreDeferInput');
 const mapSvg = document.getElementById('mapSvg');
 const stageWrap = document.getElementById('stageWrap');
 const stageInner = document.getElementById('stageInner');
@@ -703,7 +711,8 @@ let printScaleValue = loadPrintScale();
 let focusFadeValue = loadFocusFade();
 let layerLockValue = loadLayerLock();
 let focusExtendValue = loadFocusExtend();
-let angularSpacingValue = loadAngularSpacing();
+let nodeScaleValue = loadNodeScale();
+let ignoreDeferValue = loadIgnoreDefer();
 let nodeStates = loadNodeStates();
 let focusModeEnabled = loadFocusMode();
 let centerNodeKey = loadCenterNodeKey();
@@ -939,22 +948,38 @@ function saveFocusExtend(){
   }
 }
 
-function loadAngularSpacing(){
+function loadNodeScale(){
   try{
-    const value = Number(localStorage.getItem(ANGULAR_SPACING_STORAGE_KEY));
+    const value = Number(localStorage.getItem(NODE_SCALE_STORAGE_KEY));
     return Number.isFinite(value)
-      ? Math.max(0, Math.floor(value))
-      : 6;
+      ? Math.max(25, Math.min(200, Math.floor(value)))
+      : 50;
   }catch{
-    return 6;
+    return 50;
   }
 }
 
-function saveAngularSpacing(){
+function saveNodeScale(){
   try{
-    localStorage.setItem(ANGULAR_SPACING_STORAGE_KEY, String(angularSpacingValue));
+    localStorage.setItem(NODE_SCALE_STORAGE_KEY, String(nodeScaleValue));
   }catch(err){
-    console.warn('Could not save angular spacing.', err);
+    console.warn('Could not save node scale.', err);
+  }
+}
+
+function loadIgnoreDefer(){
+  try{
+    return localStorage.getItem(IGNORE_DEFER_STORAGE_KEY) === 'true';
+  }catch{
+    return false;
+  }
+}
+
+function saveIgnoreDefer(){
+  try{
+    localStorage.setItem(IGNORE_DEFER_STORAGE_KEY, String(ignoreDeferValue));
+  }catch(err){
+    console.warn('Could not save ignore defer.', err);
   }
 }
 
@@ -1036,7 +1061,8 @@ function buildMapStateExport(){
       focusFadeValue,
       layerLockValue,
       focusExtendValue,
-      angularSpacingValue,
+      nodeScaleValue,
+      ignoreDeferValue,
       nodeStates,
       focusModeEnabled,
       centerNodeKey
@@ -1089,9 +1115,10 @@ function applyImportedMapState(payload){
   focusExtendValue = Number.isFinite(Number(incoming.focusExtendValue))
     ? Math.max(0, Math.floor(Number(incoming.focusExtendValue)))
     : 0;
-  angularSpacingValue = Number.isFinite(Number(incoming.angularSpacingValue))
-    ? Math.max(0, Math.floor(Number(incoming.angularSpacingValue)))
-    : 6;
+  nodeScaleValue = Number.isFinite(Number(incoming.nodeScaleValue))
+    ? Math.max(25, Math.min(200, Math.floor(Number(incoming.nodeScaleValue))))
+    : 50;
+  ignoreDeferValue = !!incoming.ignoreDeferValue;
   nodeStates = incoming.nodeStates && typeof incoming.nodeStates === 'object' ? incoming.nodeStates : {};
   focusModeEnabled = !!incoming.focusModeEnabled;
   centerNodeKey = typeof incoming.centerNodeKey === 'string' ? incoming.centerNodeKey : '';
@@ -1106,7 +1133,8 @@ function applyImportedMapState(payload){
   saveFocusFade();
   saveLayerLock();
   saveFocusExtend();
-  saveAngularSpacing();
+  saveNodeScale();
+  saveIgnoreDefer();
   saveNodeStates();
   saveFocusMode();
   saveCenterNodeKey();
@@ -1119,7 +1147,8 @@ function applyImportedMapState(payload){
   focusFadeInput.value = String(focusFadeValue);
   layerLockInput.value = String(layerLockValue);
   focusExtendInput.value = String(focusExtendValue);
-  angularSpacingInput.value = String(angularSpacingValue);
+  nodeScaleInput.value = String(nodeScaleValue);
+  ignoreDeferInput.checked = ignoreDeferValue;
 
   applySidebarState();
 }
@@ -1237,12 +1266,13 @@ function buildPrintDocumentHtml(){
     }
 
 .node .deferBadge {
-  fill: #222222;
-  stroke: #ffffff;
+  fill: #ffffff;
+  stroke: #0f1115;
   stroke-width: 2px;
   paint-order: stroke;
-  font-size: 8px;
-  font-weight: 700;
+  font-weight: 800;
+  user-select: none;
+  pointer-events: none;
 }
 
     .node.active circle {
@@ -1328,13 +1358,26 @@ function applySidebarState(){  if (sidebarCollapsed) {
       });
     }
 
-    function getNodeDefer(node){
-      const value = Number(deferByKey[node.key] ?? 0);
-      if (!Number.isFinite(value) || value < 0) return 0;
-      return Math.floor(value);
-    }
+function getStoredNodeDefer(node){
+  const value = Number(deferByKey[node.key] ?? 0);
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.floor(value);
+}
 
-    function setNodeDefer(nodeKey, value){
+function getNodeDefer(node){
+  if (ignoreDeferValue) return 0;
+  return getStoredNodeDefer(node);
+}
+
+function getNodeScaleMultiplier(){
+  return nodeScaleValue / 100;
+}
+
+function getDeferFontSize(){
+  return 10 * getNodeScaleMultiplier();
+}
+
+function setNodeDefer(nodeKey, value){
       const safeValue = Math.max(0, Math.floor(Number(value) || 0));
       if (safeValue <= 0) {
         delete deferByKey[nodeKey];
@@ -1586,127 +1629,6 @@ function makeLinkPath(source, target){
   return `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
 }
 
-function estimateNodeAngularHalfSpan(node, ringGap){
-  const labelLines = wrapLabelText(node.name, labelWrapValue);
-  const longestLineLength = labelLines.reduce((max, line) => Math.max(max, String(line || '').length), 0);
-
-  const circleWidth = (getNodeRadius(node) * 2) + 10;
-  const textWidth = Math.max(24, longestLineLength * 7.2);
-  const estimatedWidthPx = circleWidth + 30 + textWidth + 10;
-
-  const radius = Math.max(ringGap, node.radius || ringGap);
-  const radians = estimatedWidthPx / radius;
-  const degrees = radians * (180 / Math.PI);
-
-  return Math.max(angularSpacingValue / 2, degrees / 2);
-}
-
-function applyRingAngularSpacing(nodes, ringGap, centerX, centerY){
-  if (!nodes || !nodes.length || angularSpacingValue <= 0) {
-    return nodes;
-  }
-
-  const byLayer = new Map();
-
-  nodes.forEach(node => {
-    const layer = Number(node.displayLayer || 0);
-    if (!byLayer.has(layer)) byLayer.set(layer, []);
-    byLayer.get(layer).push(node);
-  });
-
-  byLayer.forEach(layerNodes => {
-    if (layerNodes.length <= 1) return;
-
-    const ordered = [...layerNodes].sort((a, b) => a.angle - b.angle);
-
-    ordered.forEach(node => {
-      node._idealAngle = node.angle;
-      node._halfSpan = estimateNodeAngularHalfSpan(node, ringGap);
-      const halfWindow = Math.max(
-        node._halfSpan,
-        ((node.angleEnd - node.angleStart) / 2) - 0.5
-      );
-
-      node._minAngle = node._idealAngle - halfWindow;
-      node._maxAngle = node._idealAngle + halfWindow;
-
-      if (node._minAngle < node.angleStart + node._halfSpan) {
-        node._minAngle = node.angleStart + node._halfSpan;
-      }
-
-      if (node._maxAngle > node.angleEnd - node._halfSpan) {
-        node._maxAngle = node.angleEnd - node._halfSpan;
-      }
-
-      if (node._minAngle > node._maxAngle) {
-        const mid = (node.angleStart + node.angleEnd) / 2;
-        node._minAngle = mid;
-        node._maxAngle = mid;
-      }
-    });
-
-    for (let pass = 0; pass < 6; pass++) {
-      let changed = false;
-
-      for (let i = 1; i < ordered.length; i++) {
-        const left = ordered[i - 1];
-        const right = ordered[i];
-        const requiredGap = left._halfSpan + right._halfSpan;
-        const actualGap = right.angle - left.angle;
-
-        if (actualGap < requiredGap) {
-          const shortage = requiredGap - actualGap;
-          const leftRoom = Math.max(0, left.angle - left._minAngle);
-          const rightRoom = Math.max(0, right._maxAngle - right.angle);
-
-          let pushLeft = Math.min(leftRoom, shortage / 2);
-          let pushRight = Math.min(rightRoom, shortage / 2);
-
-          let remaining = shortage - pushLeft - pushRight;
-
-          if (remaining > 0 && leftRoom > pushLeft) {
-            const extraLeft = Math.min(leftRoom - pushLeft, remaining);
-            pushLeft += extraLeft;
-            remaining -= extraLeft;
-          }
-
-          if (remaining > 0 && rightRoom > pushRight) {
-            const extraRight = Math.min(rightRoom - pushRight, remaining);
-            pushRight += extraRight;
-            remaining -= extraRight;
-          }
-
-          left.angle -= pushLeft;
-          right.angle += pushRight;
-
-          changed = changed || pushLeft > 0 || pushRight > 0;
-        }
-      }
-
-      for (let i = 0; i < ordered.length; i++) {
-        const node = ordered[i];
-        node.angle = Math.max(node._minAngle, Math.min(node._maxAngle, node.angle));
-      }
-
-      for (let i = 1; i < ordered.length; i++) {
-        if (ordered[i].angle < ordered[i - 1].angle) {
-          ordered[i].angle = ordered[i - 1].angle;
-        }
-      }
-
-      if (!changed) break;
-    }
-
-    ordered.forEach(node => {
-      const point = polarPoint(centerX, centerY, node.radius, node.angle);
-      node.x = point.x;
-      node.y = point.y;
-    });
-  });
-
-  return nodes;
-}
-
 function wrapLabelText(text, maxChars){
   const words = String(text || '').split(/\s+/).filter(Boolean);
   if (!words.length) return [''];
@@ -1730,9 +1652,11 @@ function wrapLabelText(text, maxChars){
 
 function getNodeRadius(node){
   const state = getNodeState(node.key);
-  if (state.done) return 10;
-  if (state.focus) return 7.5;
-  return 5;
+  const scale = getNodeScaleMultiplier();
+
+  if (state.done) return 20 * scale;
+  if (state.focus) return 15 * scale;
+  return 10 * scale;
 }
 
 function collectDescendantsWithinLayerRange(node, sourceAbsoluteLayer, maxAbsoluteLayer, out){
@@ -1807,8 +1731,6 @@ function shouldFadeNode(node, focusVisibleKeys){
         isNodeAllowedByLayerLock(node, visualRootAbsoluteLayer)
       );
 
-      applyRingAngularSpacing(visibleNodes, flat.ringGap, flat.centerX, flat.centerY);
-
       const visibleNodeIds = new Set(visibleNodes.map(node => node.id));
       const visibleLinks = flat.links.filter(link =>
         visibleNodeIds.has(link.source) && visibleNodeIds.has(link.target)
@@ -1882,12 +1804,9 @@ for (let layer = 1; layer <= visibleMaxDisplayLayer; layer++) {
 const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
 badge.setAttribute('class', 'deferBadge');
 badge.setAttribute('text-anchor', 'middle');
-
-// move badge slightly up and right relative to node size
-const r = getNodeRadius(node);
-badge.setAttribute('x', r * 0.6);
-badge.setAttribute('y', -r * 0.6);
-
+badge.setAttribute('x', 0);
+badge.setAttribute('y', getDeferFontSize() * 0.35);
+badge.style.fontSize = `${getDeferFontSize()}px`;
 badge.textContent = `+${node.defer}`;
 g.appendChild(badge);
         }
@@ -1978,6 +1897,8 @@ function makeLayerCountsText(nodes){
 }
 
 function renderLayerColorControls(nodes){
+  if (!layerColorControls) return;
+
   const layers = [...new Set(nodes.map(node => node.absoluteLayer || (node.displayLayer + 1)))].sort((a, b) => a - b);
 
   if (!layers.length) {
@@ -2377,18 +2298,29 @@ focusExtendInput.addEventListener('input', () => {
   }
 });
 
-angularSpacingInput.addEventListener('input', () => {
-  const rawValue = Number(angularSpacingInput.value);
+nodeScaleInput.addEventListener('input', () => {
+  const rawValue = Number(nodeScaleInput.value);
   const safeValue = Number.isFinite(rawValue)
-    ? Math.max(0, Math.floor(rawValue))
-    : 6;
+    ? Math.max(25, Math.min(200, Math.floor(rawValue)))
+    : 50;
 
-  angularSpacingValue = safeValue;
-  angularSpacingInput.value = String(safeValue);
-  saveAngularSpacing();
+  nodeScaleValue = safeValue;
+  nodeScaleInput.value = String(safeValue);
+  saveNodeScale();
 
   if (currentRoot) {
     renderMap(currentRoot, { preserveView:true });
+  }
+});
+
+ignoreDeferInput.addEventListener('change', () => {
+  ignoreDeferValue = ignoreDeferInput.checked;
+  saveIgnoreDefer();
+
+  if (currentRoot) {
+    recomputeAbsoluteLayers(currentRoot, 1);
+    renderMap(currentRoot, { preserveView:true });
+    if (activeNodeId) openNodeOverlay(activeNodeId);
   }
 });
 
@@ -2417,7 +2349,8 @@ printScaleInput.value = String(printScaleValue);
 focusFadeInput.value = String(focusFadeValue);
 layerLockInput.value = String(layerLockValue);
 focusExtendInput.value = String(focusExtendValue);
-angularSpacingInput.value = String(angularSpacingValue);
+nodeScaleInput.value = String(nodeScaleValue);
+ignoreDeferInput.checked = ignoreDeferValue;
 applyZoom();
 const savedBook = loadBook();
 const initialData = savedBook || SAMPLE;
