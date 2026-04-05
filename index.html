@@ -551,6 +551,18 @@ svg{
         <span class="ringGapHint">Default 18</span>
       </label>
 
+      <label class="ringGapRow">
+        <span>Layer lock</span>
+        <input id="layerLockInput" type="number" min="0" step="1" value="0" />
+        <span class="ringGapHint">0 = off</span>
+      </label>
+
+      <label class="ringGapRow">
+        <span>Focus extend</span>
+        <input id="focusExtendInput" type="number" min="0" step="1" value="0" />
+        <span class="ringGapHint">0 = focus only</span>
+      </label>
+
       <div id="layerCounts" class="treeList">Load a book export to see node counts by display layer here.</div>
       <div id="layerColorControls" class="layerColorControls"></div>
     </div>
@@ -612,6 +624,8 @@ const FOCUS_MODE_STORAGE_KEY = 'mindLibraryNetworkMap.focusMode.v1';
 const CENTER_NODE_STORAGE_KEY = 'mindLibraryNetworkMap.centerNode.v1';
 const PRINT_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.printScale.v1';
 const FOCUS_FADE_STORAGE_KEY = 'mindLibraryNetworkMap.focusFade.v1';
+const LAYER_LOCK_STORAGE_KEY = 'mindLibraryNetworkMap.layerLock.v1';
+const FOCUS_EXTEND_STORAGE_KEY = 'mindLibraryNetworkMap.focusExtend.v1';
 const BOOK_STORAGE_KEY = 'mindLibraryNetworkMap.book.v1';
 
 const fileInput = document.getElementById('fileInput');
@@ -633,6 +647,8 @@ const ringGapInput = document.getElementById('ringGapInput');
 const labelWrapInput = document.getElementById('labelWrapInput');
 const printScaleInput = document.getElementById('printScaleInput');
 const focusFadeInput = document.getElementById('focusFadeInput');
+const layerLockInput = document.getElementById('layerLockInput');
+const focusExtendInput = document.getElementById('focusExtendInput');
 const mapSvg = document.getElementById('mapSvg');
 const stageWrap = document.getElementById('stageWrap');
 const stageInner = document.getElementById('stageInner');
@@ -678,6 +694,8 @@ let ringGapValue = loadRingGap();
 let labelWrapValue = loadLabelWrap();
 let printScaleValue = loadPrintScale();
 let focusFadeValue = loadFocusFade();
+let layerLockValue = loadLayerLock();
+let focusExtendValue = loadFocusExtend();
 let nodeStates = loadNodeStates();
 let focusModeEnabled = loadFocusMode();
 let centerNodeKey = loadCenterNodeKey();
@@ -875,6 +893,44 @@ function saveFocusFade(){
   }
 }
 
+function loadLayerLock(){
+  try{
+    const value = Number(localStorage.getItem(LAYER_LOCK_STORAGE_KEY));
+    return Number.isFinite(value)
+      ? Math.max(0, Math.floor(value))
+      : 0;
+  }catch{
+    return 0;
+  }
+}
+
+function saveLayerLock(){
+  try{
+    localStorage.setItem(LAYER_LOCK_STORAGE_KEY, String(layerLockValue));
+  }catch(err){
+    console.warn('Could not save layer lock.', err);
+  }
+}
+
+function loadFocusExtend(){
+  try{
+    const value = Number(localStorage.getItem(FOCUS_EXTEND_STORAGE_KEY));
+    return Number.isFinite(value)
+      ? Math.max(0, Math.floor(value))
+      : 0;
+  }catch{
+    return 0;
+  }
+}
+
+function saveFocusExtend(){
+  try{
+    localStorage.setItem(FOCUS_EXTEND_STORAGE_KEY, String(focusExtendValue));
+  }catch(err){
+    console.warn('Could not save focus extend.', err);
+  }
+}
+
 function loadNodeStates(){
   try{
     const raw = localStorage.getItem(NODE_STATE_STORAGE_KEY);
@@ -951,6 +1007,8 @@ function buildMapStateExport(){
       labelWrapValue,
       printScaleValue,
       focusFadeValue,
+      layerLockValue,
+      focusExtendValue,
       nodeStates,
       focusModeEnabled,
       centerNodeKey
@@ -997,6 +1055,12 @@ function applyImportedMapState(payload){
   focusFadeValue = Number.isFinite(Number(incoming.focusFadeValue))
     ? Math.max(0, Math.min(100, Math.floor(Number(incoming.focusFadeValue))))
     : 18;
+  layerLockValue = Number.isFinite(Number(incoming.layerLockValue))
+    ? Math.max(0, Math.floor(Number(incoming.layerLockValue)))
+    : 0;
+  focusExtendValue = Number.isFinite(Number(incoming.focusExtendValue))
+    ? Math.max(0, Math.floor(Number(incoming.focusExtendValue)))
+    : 0;
   nodeStates = incoming.nodeStates && typeof incoming.nodeStates === 'object' ? incoming.nodeStates : {};
   focusModeEnabled = !!incoming.focusModeEnabled;
   centerNodeKey = typeof incoming.centerNodeKey === 'string' ? incoming.centerNodeKey : '';
@@ -1009,6 +1073,8 @@ function applyImportedMapState(payload){
   saveLabelWrap();
   savePrintScale();
   saveFocusFade();
+  saveLayerLock();
+  saveFocusExtend();
   saveNodeStates();
   saveFocusMode();
   saveCenterNodeKey();
@@ -1019,6 +1085,8 @@ function applyImportedMapState(payload){
   labelWrapInput.value = String(labelWrapValue);
   printScaleInput.value = String(printScaleValue);
   focusFadeInput.value = String(focusFadeValue);
+  layerLockInput.value = String(layerLockValue);
+  focusExtendInput.value = String(focusExtendValue);
 
   applySidebarState();
 }
@@ -1511,10 +1579,53 @@ function getNodeRadius(node){
   return 10;
 }
 
-function shouldFadeNode(node){
+function collectDescendantsWithinLayerRange(node, sourceAbsoluteLayer, maxAbsoluteLayer, out){
+  if (!node) return;
+
+  if (node.absoluteLayer <= maxAbsoluteLayer) {
+    out.add(node.key);
+  }
+
+  for (const child of node.children || []) {
+    collectDescendantsWithinLayerRange(child, sourceAbsoluteLayer, maxAbsoluteLayer, out);
+  }
+}
+
+function buildFocusVisibleKeySet(root){
+  const visible = new Set();
+  if (!root) return visible;
+
+  function walk(node){
+    const state = getNodeState(node.key);
+
+    if (state.done || state.focus) {
+      const sourceAbsoluteLayer = node.absoluteLayer || 1;
+      const maxAbsoluteLayer = sourceAbsoluteLayer + focusExtendValue;
+
+      collectDescendantsWithinLayerRange(
+        node,
+        sourceAbsoluteLayer,
+        maxAbsoluteLayer,
+        visible
+      );
+    }
+
+    for (const child of node.children || []) {
+      walk(child);
+    }
+  }
+
+  walk(root);
+  return visible;
+}
+function isNodeAllowedByLayerLock(node, visualRootAbsoluteLayer){
+  if (!layerLockValue || layerLockValue <= 0) return true;
+  return node.absoluteLayer >= visualRootAbsoluteLayer && node.absoluteLayer <= layerLockValue;
+}
+
+function shouldFadeNode(node, focusVisibleKeys){
   if (!focusModeEnabled) return false;
-  const state = getNodeState(node.key);
-  return !state.done && !state.focus;
+  return !focusVisibleKeys.has(node.key);
 }
 
     function renderMap(root, opts = {}){
@@ -1532,8 +1643,25 @@ function shouldFadeNode(node){
       }
 
       const flat = flattenTreeRadial(root);
-      renderedNodes = flat.nodes;
-      renderedLinks = flat.links;
+      const visualRoot = getVisualRoot(root);
+      const visualRootAbsoluteLayer = visualRoot ? visualRoot.absoluteLayer : 1;
+      const focusVisibleKeys = buildFocusVisibleKeySet(root);
+
+      const visibleNodes = flat.nodes.filter(node =>
+        isNodeAllowedByLayerLock(node, visualRootAbsoluteLayer)
+      );
+
+      const visibleNodeIds = new Set(visibleNodes.map(node => node.id));
+      const visibleLinks = flat.links.filter(link =>
+        visibleNodeIds.has(link.source) && visibleNodeIds.has(link.target)
+      );
+
+      const visibleMaxDisplayLayer = visibleNodes.length
+        ? Math.max(...visibleNodes.map(node => node.displayLayer))
+        : 0;
+
+      renderedNodes = visibleNodes;
+      renderedLinks = visibleLinks;
       currentLayoutSize = { width: flat.width, height: flat.height };
 
       mapSvg.setAttribute('width', flat.width);
@@ -1554,7 +1682,7 @@ function shouldFadeNode(node){
       mapSvg.appendChild(linksGroup);
       mapSvg.appendChild(nodesGroup);
 
-for (let layer = 1; layer <= flat.maxDisplayLayer; layer++) {
+for (let layer = 1; layer <= visibleMaxDisplayLayer; layer++) {
   const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   circle.setAttribute('class', 'ringGuide');
   circle.setAttribute('cx', flat.centerX);
@@ -1563,23 +1691,23 @@ for (let layer = 1; layer <= flat.maxDisplayLayer; layer++) {
   guidesGroup.appendChild(circle);
 }
 
-      flat.links.forEach(link => {
-        const s = flat.nodes.find(n => n.id === link.source);
-        const t = flat.nodes.find(n => n.id === link.target);
+      visibleLinks.forEach(link => {
+        const s = visibleNodes.find(n => n.id === link.source);
+        const t = visibleNodes.find(n => n.id === link.target);
         if (!s || !t) return;
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('class', 'link' + (link.deferred ? ' deferred' : ''));
         path.setAttribute('d', makeLinkPath(s, t, flat.centerX, flat.centerY));
 
-const fadeLink = focusModeEnabled && (shouldFadeNode(s) || shouldFadeNode(t));
-path.style.opacity = fadeLink ? String(focusFadeValue / 100) : '1';
+        const fadeLink = focusModeEnabled && (shouldFadeNode(s, focusVisibleKeys) || shouldFadeNode(t, focusVisibleKeys));
+        path.style.opacity = fadeLink ? String(focusFadeValue / 100) : '1';
 
         linksGroup.appendChild(path);
       });
 
-      flat.nodes.forEach(node => {
-        const faded = shouldFadeNode(node);
+      visibleNodes.forEach(node => {
+        const faded = shouldFadeNode(node, focusVisibleKeys);
 
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('class', 'node' + (node.id === activeNodeId ? ' active' : ''));
@@ -1639,8 +1767,7 @@ path.style.opacity = fadeLink ? String(focusFadeValue / 100) : '1';
         nodesGroup.appendChild(g);
       });
 
-      updateSidebar(root, flat.nodes);
-
+      updateSidebar(root, visibleNodes);
       if (preserveView && savedScroll) {
         stageWrap.scrollTo(savedScroll.left, savedScroll.top);
       } else {
@@ -2058,6 +2185,36 @@ focusFadeInput.addEventListener('input', () => {
   }
 });
 
+layerLockInput.addEventListener('input', () => {
+  const rawValue = Number(layerLockInput.value);
+  const safeValue = Number.isFinite(rawValue)
+    ? Math.max(0, Math.floor(rawValue))
+    : 0;
+
+  layerLockValue = safeValue;
+  layerLockInput.value = String(safeValue);
+  saveLayerLock();
+
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+  }
+});
+
+focusExtendInput.addEventListener('input', () => {
+  const rawValue = Number(focusExtendInput.value);
+  const safeValue = Number.isFinite(rawValue)
+    ? Math.max(0, Math.floor(rawValue))
+    : 0;
+
+  focusExtendValue = safeValue;
+  focusExtendInput.value = String(safeValue);
+  saveFocusExtend();
+
+  if (currentRoot && focusModeEnabled) {
+    renderMap(currentRoot, { preserveView:true });
+  }
+});
+
 sidebarToggle.addEventListener('click', () => {
       sidebarCollapsed = !sidebarCollapsed;
       saveSidebarCollapsed();
@@ -2081,6 +2238,8 @@ ringGapInput.value = String(ringGapValue);
 labelWrapInput.value = String(labelWrapValue);
 printScaleInput.value = String(printScaleValue);
 focusFadeInput.value = String(focusFadeValue);
+layerLockInput.value = String(layerLockValue);
+focusExtendInput.value = String(focusExtendValue);
 applyZoom();
 const savedBook = loadBook();
 const initialData = savedBook || SAMPLE;
