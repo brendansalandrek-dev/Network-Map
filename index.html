@@ -1736,9 +1736,9 @@ function wrapLabelText(text, maxChars){
 
 function getNodeRadius(node){
   const state = getNodeState(node.key);
-  if (state.done) return 20;
-  if (state.focus) return 15;
-  return 10;
+  if (state.done) return 10;
+  if (state.focus) return 7.5;
+  return 5;
 }
 
 function collectDescendantsWithinLayerRange(node, sourceAbsoluteLayer, maxAbsoluteLayer, out){
