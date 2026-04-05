@@ -1444,7 +1444,7 @@ const endAngleDeg = 270;
   const sidePad = 240;
   const topPad = 160;
   const bottomPad = 170;
-  const siblingGapDeg = 4;
+  const siblingGapDeg = 0;
 
   const visualRoot = getVisualRoot(root);
   const rootWeight = computeLeafWeight(visualRoot);
@@ -1524,7 +1524,7 @@ const centerY = height / 2;
         const weights = node.children.map(child => computeLeafWeight(child));
         const totalWeight = weights.reduce((sum, value) => sum + value, 0);
         const totalGap = siblingGapDeg * Math.max(0, node.children.length - 1);
-        const availableAngle = Math.max(8, (angleEnd - angleStart) - totalGap);
+        const availableAngle = Math.max(0, (angleEnd - angleStart) - totalGap);
 
         let cursor = angleStart;
 
