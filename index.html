@@ -1236,14 +1236,14 @@ function buildPrintDocumentHtml(){
       font-size: 12px;
     }
 
-    .node .deferBadge {
-      fill: #111111;
-      stroke: #ffffff;
-      stroke-width: 3px;
-      paint-order: stroke;
-      font-size: 10px;
-      font-weight: 800;
-    }
+.node .deferBadge {
+  fill: #222222;
+  stroke: #ffffff;
+  stroke-width: 2px;
+  paint-order: stroke;
+  font-size: 8px;
+  font-weight: 700;
+}
 
     .node.active circle {
       stroke: #111111;
@@ -1582,14 +1582,8 @@ const centerY = height / 2;
       };
     }
 
-function makeLinkPath(source, target, cx, cy){
-  const p1 = { x: source.x, y: source.y };
-  const p2 = { x: target.x, y: target.y };
-
-  const c1 = polarPoint(cx, cy, source.radius + (target.radius - source.radius) * 0.42, source.angle);
-  const c2 = polarPoint(cx, cy, source.radius + (target.radius - source.radius) * 0.78, target.angle);
-
-  return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`;
+function makeLinkPath(source, target){
+  return `M ${source.x} ${source.y} L ${target.x} ${target.y}`;
 }
 
 function estimateNodeAngularHalfSpan(node, ringGap){
@@ -1862,7 +1856,7 @@ for (let layer = 1; layer <= visibleMaxDisplayLayer; layer++) {
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('class', 'link' + (link.deferred ? ' deferred' : ''));
-        path.setAttribute('d', makeLinkPath(s, t, flat.centerX, flat.centerY));
+        path.setAttribute('d', makeLinkPath(s, t));
 
         const fadeLink = focusModeEnabled && (shouldFadeNode(s, focusVisibleKeys) || shouldFadeNode(t, focusVisibleKeys));
         path.style.opacity = fadeLink ? String(focusFadeValue / 100) : '1';
@@ -1885,13 +1879,17 @@ for (let layer = 1; layer <= visibleMaxDisplayLayer; layer++) {
         g.appendChild(circle);
 
         if (node.defer > 0) {
-          const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          badge.setAttribute('class', 'deferBadge');
-          badge.setAttribute('text-anchor', 'middle');
-          badge.setAttribute('x', 0);
-          badge.setAttribute('y', 4);
-          badge.textContent = `+${node.defer}`;
-          g.appendChild(badge);
+const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+badge.setAttribute('class', 'deferBadge');
+badge.setAttribute('text-anchor', 'middle');
+
+// move badge slightly up and right relative to node size
+const r = getNodeRadius(node);
+badge.setAttribute('x', r * 0.6);
+badge.setAttribute('y', -r * 0.6);
+
+badge.textContent = `+${node.defer}`;
+g.appendChild(badge);
         }
 
         const labelOffset = 30;
