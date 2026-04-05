@@ -563,8 +563,13 @@ svg{
         <span class="ringGapHint">0 = focus only</span>
       </label>
 
-      <div id="layerCounts" class="treeList">Load a book export to see node counts by display layer here.</div>
-      <div id="layerColorControls" class="layerColorControls"></div>
+      <label class="ringGapRow">
+        <span>Angular spacing</span>
+        <input id="angularSpacingInput" type="number" min="0" step="1" value="6" />
+        <span class="ringGapHint">Default 6°</span>
+      </label>
+
+      <div id="layerCounts" class="treeList">Load a book export to see node counts by display layer here.</div>      <div id="layerColorControls" class="layerColorControls"></div>
     </div>
   </aside>
 
@@ -626,6 +631,7 @@ const PRINT_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.printScale.v1';
 const FOCUS_FADE_STORAGE_KEY = 'mindLibraryNetworkMap.focusFade.v1';
 const LAYER_LOCK_STORAGE_KEY = 'mindLibraryNetworkMap.layerLock.v1';
 const FOCUS_EXTEND_STORAGE_KEY = 'mindLibraryNetworkMap.focusExtend.v1';
+const ANGULAR_SPACING_STORAGE_KEY = 'mindLibraryNetworkMap.angularSpacing.v1';
 const BOOK_STORAGE_KEY = 'mindLibraryNetworkMap.book.v1';
 
 const fileInput = document.getElementById('fileInput');
@@ -649,6 +655,7 @@ const printScaleInput = document.getElementById('printScaleInput');
 const focusFadeInput = document.getElementById('focusFadeInput');
 const layerLockInput = document.getElementById('layerLockInput');
 const focusExtendInput = document.getElementById('focusExtendInput');
+const angularSpacingInput = document.getElementById('angularSpacingInput');
 const mapSvg = document.getElementById('mapSvg');
 const stageWrap = document.getElementById('stageWrap');
 const stageInner = document.getElementById('stageInner');
@@ -696,6 +703,7 @@ let printScaleValue = loadPrintScale();
 let focusFadeValue = loadFocusFade();
 let layerLockValue = loadLayerLock();
 let focusExtendValue = loadFocusExtend();
+let angularSpacingValue = loadAngularSpacing();
 let nodeStates = loadNodeStates();
 let focusModeEnabled = loadFocusMode();
 let centerNodeKey = loadCenterNodeKey();
@@ -931,6 +939,25 @@ function saveFocusExtend(){
   }
 }
 
+function loadAngularSpacing(){
+  try{
+    const value = Number(localStorage.getItem(ANGULAR_SPACING_STORAGE_KEY));
+    return Number.isFinite(value)
+      ? Math.max(0, Math.floor(value))
+      : 6;
+  }catch{
+    return 6;
+  }
+}
+
+function saveAngularSpacing(){
+  try{
+    localStorage.setItem(ANGULAR_SPACING_STORAGE_KEY, String(angularSpacingValue));
+  }catch(err){
+    console.warn('Could not save angular spacing.', err);
+  }
+}
+
 function loadNodeStates(){
   try{
     const raw = localStorage.getItem(NODE_STATE_STORAGE_KEY);
@@ -1009,6 +1036,7 @@ function buildMapStateExport(){
       focusFadeValue,
       layerLockValue,
       focusExtendValue,
+      angularSpacingValue,
       nodeStates,
       focusModeEnabled,
       centerNodeKey
@@ -1061,6 +1089,9 @@ function applyImportedMapState(payload){
   focusExtendValue = Number.isFinite(Number(incoming.focusExtendValue))
     ? Math.max(0, Math.floor(Number(incoming.focusExtendValue)))
     : 0;
+  angularSpacingValue = Number.isFinite(Number(incoming.angularSpacingValue))
+    ? Math.max(0, Math.floor(Number(incoming.angularSpacingValue)))
+    : 6;
   nodeStates = incoming.nodeStates && typeof incoming.nodeStates === 'object' ? incoming.nodeStates : {};
   focusModeEnabled = !!incoming.focusModeEnabled;
   centerNodeKey = typeof incoming.centerNodeKey === 'string' ? incoming.centerNodeKey : '';
@@ -1075,6 +1106,7 @@ function applyImportedMapState(payload){
   saveFocusFade();
   saveLayerLock();
   saveFocusExtend();
+  saveAngularSpacing();
   saveNodeStates();
   saveFocusMode();
   saveCenterNodeKey();
@@ -1087,6 +1119,7 @@ function applyImportedMapState(payload){
   focusFadeInput.value = String(focusFadeValue);
   layerLockInput.value = String(layerLockValue);
   focusExtendInput.value = String(focusExtendValue);
+  angularSpacingInput.value = String(angularSpacingValue);
 
   applySidebarState();
 }
@@ -1559,6 +1592,127 @@ function makeLinkPath(source, target, cx, cy){
   return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`;
 }
 
+function estimateNodeAngularHalfSpan(node, ringGap){
+  const labelLines = wrapLabelText(node.name, labelWrapValue);
+  const longestLineLength = labelLines.reduce((max, line) => Math.max(max, String(line || '').length), 0);
+
+  const circleWidth = (getNodeRadius(node) * 2) + 10;
+  const textWidth = Math.max(24, longestLineLength * 7.2);
+  const estimatedWidthPx = circleWidth + 30 + textWidth + 10;
+
+  const radius = Math.max(ringGap, node.radius || ringGap);
+  const radians = estimatedWidthPx / radius;
+  const degrees = radians * (180 / Math.PI);
+
+  return Math.max(angularSpacingValue / 2, degrees / 2);
+}
+
+function applyRingAngularSpacing(nodes, ringGap, centerX, centerY){
+  if (!nodes || !nodes.length || angularSpacingValue <= 0) {
+    return nodes;
+  }
+
+  const byLayer = new Map();
+
+  nodes.forEach(node => {
+    const layer = Number(node.displayLayer || 0);
+    if (!byLayer.has(layer)) byLayer.set(layer, []);
+    byLayer.get(layer).push(node);
+  });
+
+  byLayer.forEach(layerNodes => {
+    if (layerNodes.length <= 1) return;
+
+    const ordered = [...layerNodes].sort((a, b) => a.angle - b.angle);
+
+    ordered.forEach(node => {
+      node._idealAngle = node.angle;
+      node._halfSpan = estimateNodeAngularHalfSpan(node, ringGap);
+      const halfWindow = Math.max(
+        node._halfSpan,
+        ((node.angleEnd - node.angleStart) / 2) - 0.5
+      );
+
+      node._minAngle = node._idealAngle - halfWindow;
+      node._maxAngle = node._idealAngle + halfWindow;
+
+      if (node._minAngle < node.angleStart + node._halfSpan) {
+        node._minAngle = node.angleStart + node._halfSpan;
+      }
+
+      if (node._maxAngle > node.angleEnd - node._halfSpan) {
+        node._maxAngle = node.angleEnd - node._halfSpan;
+      }
+
+      if (node._minAngle > node._maxAngle) {
+        const mid = (node.angleStart + node.angleEnd) / 2;
+        node._minAngle = mid;
+        node._maxAngle = mid;
+      }
+    });
+
+    for (let pass = 0; pass < 6; pass++) {
+      let changed = false;
+
+      for (let i = 1; i < ordered.length; i++) {
+        const left = ordered[i - 1];
+        const right = ordered[i];
+        const requiredGap = left._halfSpan + right._halfSpan;
+        const actualGap = right.angle - left.angle;
+
+        if (actualGap < requiredGap) {
+          const shortage = requiredGap - actualGap;
+          const leftRoom = Math.max(0, left.angle - left._minAngle);
+          const rightRoom = Math.max(0, right._maxAngle - right.angle);
+
+          let pushLeft = Math.min(leftRoom, shortage / 2);
+          let pushRight = Math.min(rightRoom, shortage / 2);
+
+          let remaining = shortage - pushLeft - pushRight;
+
+          if (remaining > 0 && leftRoom > pushLeft) {
+            const extraLeft = Math.min(leftRoom - pushLeft, remaining);
+            pushLeft += extraLeft;
+            remaining -= extraLeft;
+          }
+
+          if (remaining > 0 && rightRoom > pushRight) {
+            const extraRight = Math.min(rightRoom - pushRight, remaining);
+            pushRight += extraRight;
+            remaining -= extraRight;
+          }
+
+          left.angle -= pushLeft;
+          right.angle += pushRight;
+
+          changed = changed || pushLeft > 0 || pushRight > 0;
+        }
+      }
+
+      for (let i = 0; i < ordered.length; i++) {
+        const node = ordered[i];
+        node.angle = Math.max(node._minAngle, Math.min(node._maxAngle, node.angle));
+      }
+
+      for (let i = 1; i < ordered.length; i++) {
+        if (ordered[i].angle < ordered[i - 1].angle) {
+          ordered[i].angle = ordered[i - 1].angle;
+        }
+      }
+
+      if (!changed) break;
+    }
+
+    ordered.forEach(node => {
+      const point = polarPoint(centerX, centerY, node.radius, node.angle);
+      node.x = point.x;
+      node.y = point.y;
+    });
+  });
+
+  return nodes;
+}
+
 function wrapLabelText(text, maxChars){
   const words = String(text || '').split(/\s+/).filter(Boolean);
   if (!words.length) return [''];
@@ -1658,6 +1812,8 @@ function shouldFadeNode(node, focusVisibleKeys){
       const visibleNodes = flat.nodes.filter(node =>
         isNodeAllowedByLayerLock(node, visualRootAbsoluteLayer)
       );
+
+      applyRingAngularSpacing(visibleNodes, flat.ringGap, flat.centerX, flat.centerY);
 
       const visibleNodeIds = new Set(visibleNodes.map(node => node.id));
       const visibleLinks = flat.links.filter(link =>
@@ -2223,6 +2379,21 @@ focusExtendInput.addEventListener('input', () => {
   }
 });
 
+angularSpacingInput.addEventListener('input', () => {
+  const rawValue = Number(angularSpacingInput.value);
+  const safeValue = Number.isFinite(rawValue)
+    ? Math.max(0, Math.floor(rawValue))
+    : 6;
+
+  angularSpacingValue = safeValue;
+  angularSpacingInput.value = String(safeValue);
+  saveAngularSpacing();
+
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+  }
+});
+
 sidebarToggle.addEventListener('click', () => {
       sidebarCollapsed = !sidebarCollapsed;
       saveSidebarCollapsed();
@@ -2248,6 +2419,7 @@ printScaleInput.value = String(printScaleValue);
 focusFadeInput.value = String(focusFadeValue);
 layerLockInput.value = String(layerLockValue);
 focusExtendInput.value = String(focusExtendValue);
+angularSpacingInput.value = String(angularSpacingValue);
 applyZoom();
 const savedBook = loadBook();
 const initialData = savedBook || SAMPLE;
