@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -612,6 +612,7 @@ const FOCUS_MODE_STORAGE_KEY = 'mindLibraryNetworkMap.focusMode.v1';
 const CENTER_NODE_STORAGE_KEY = 'mindLibraryNetworkMap.centerNode.v1';
 const PRINT_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.printScale.v1';
 const FOCUS_FADE_STORAGE_KEY = 'mindLibraryNetworkMap.focusFade.v1';
+const BOOK_STORAGE_KEY = 'mindLibraryNetworkMap.book.v1';
 
 const fileInput = document.getElementById('fileInput');
 const importStateInput = document.getElementById('importStateInput');
@@ -835,6 +836,23 @@ function savePrintScale(){
     localStorage.setItem(PRINT_SCALE_STORAGE_KEY, String(printScaleValue));
   }catch(err){
     console.warn('Could not save print scale.', err);
+  }
+}
+
+function saveBook(raw){
+  try{
+    localStorage.setItem(BOOK_STORAGE_KEY, JSON.stringify(raw));
+  }catch(err){
+    console.warn('Could not save book.', err);
+  }
+}
+
+function loadBook(){
+  try{
+    const raw = localStorage.getItem(BOOK_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch{
+    return null;
   }
 }
 
@@ -1631,7 +1649,7 @@ path.style.opacity = fadeLink ? String(focusFadeValue / 100) : '1';
     }
 
 function updateSidebar(root, nodes){
-  loadedName.textContent = root.name;
+  loadedName.textContent = savedBook ? root.name + ' (Saved)' : root.name;
   const pageCount = countPages(root);
   const noteCount = countNonEmptyPages(root);
   const visualRoot = getVisualRoot(root);
@@ -1931,8 +1949,9 @@ stageWrap.addEventListener('wheel', (e) => {
 
       try {
         const text = await file.text();
-        const raw = JSON.parse(text);
-        const root = normalizeBook(raw);
+const raw = JSON.parse(text);
+saveBook(raw);
+const root = normalizeBook(raw);
 
         if (!root) {
           alert('That file does not look like a valid Mind Library book export.');
@@ -2063,7 +2082,10 @@ labelWrapInput.value = String(labelWrapValue);
 printScaleInput.value = String(printScaleValue);
 focusFadeInput.value = String(focusFadeValue);
 applyZoom();
-const initialRoot = normalizeBook(SAMPLE);
+const savedBook = loadBook();
+const initialData = savedBook || SAMPLE;
+
+const initialRoot = normalizeBook(initialData);
 recomputeAbsoluteLayers(initialRoot, 1);
 renderMap(initialRoot);
 
