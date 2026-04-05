@@ -1,0 +1,2072 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mind Library Network Map</title>
+  <style>
+    :root{
+      --bg:#0f1115;
+      --panel:#171a21;
+      --panel2:#1f242d;
+      --text:#e7eaf0;
+      --muted:#97a2b3;
+      --line:rgba(255,255,255,.16);
+      --lineDeferred:rgba(255,255,255,.24);
+      --border:rgba(255,255,255,.10);
+      --accent:rgba(255,255,255,.12);
+      --ring:rgba(255,255,255,.06);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      display:flex;
+      flex-direction:column;
+    }
+
+    header{
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+      background:linear-gradient(#101318, rgba(16,19,24,.94));
+      position:sticky;
+      top:0;
+      z-index:10;
+      backdrop-filter:blur(8px);
+    }
+
+    .topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    h1{
+      margin:0;
+      font-size:18px;
+    }
+
+    .sub{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+
+    button,input,select{
+      background:#0f1115;
+      color:var(--text);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:9px 12px;
+      font-size:13px;
+    }
+
+    input[type="number"]{
+      width:78px;
+    }
+
+    button{cursor:pointer}
+    button.primary{background:var(--accent)}
+
+    .app{
+      position:relative;
+      flex:1;
+      min-height:0;
+      display:grid;
+      grid-template-columns:320px 1fr;
+    }
+
+    .sidebar{
+      position:relative;
+      border-right:1px solid var(--border);
+      background:var(--panel);
+      padding:14px;
+      overflow:auto;
+      min-width:0;
+    }
+
+    .app.sidebarCollapsed{
+      grid-template-columns:0 1fr;
+    }
+
+    .app.sidebarCollapsed .sidebar{
+      padding:0;
+      border-right:0;
+      overflow:hidden;
+    }
+
+    .sidebarToggle{
+      position:absolute;
+      top:14px;
+      left:304px;
+      width:32px;
+      height:32px;
+      border-radius:999px;
+      padding:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:30;
+      box-shadow:0 6px 18px rgba(0,0,0,.25);
+    }
+
+    .app.sidebarCollapsed .sidebarToggle{
+      left:8px;
+    }
+
+    .stageWrap{
+      position:relative;
+      min-width:0;
+      min-height:0;
+      background:
+        radial-gradient(circle at center, rgba(255,255,255,.035), rgba(255,255,255,0) 55%),
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+      overflow:auto;
+      cursor:grab;
+      user-select:none;
+    }
+
+    .stageWrap.dragging{
+      cursor:grabbing;
+    }
+
+.stageInner{
+  position:relative;
+  min-width:100%;
+  min-height:100%;
+  padding:0;
+  transform-origin:top left;
+}
+
+    .card{
+      background:var(--panel2);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px;
+      margin-bottom:12px;
+    }
+
+.card h2{
+  margin:0 0 8px;
+  font-size:14px;
+}
+
+.detailsCard summary{
+  list-style:none;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:700;
+  margin:0;
+}
+
+.detailsCard summary::-webkit-details-marker{
+  display:none;
+}
+
+.detailsBody{
+  margin-top:10px;
+}
+
+    .hint{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    .stat{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:6px;
+    }
+
+    .legendRow{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:8px 0;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .optionRow{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0 0 10px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .ringGapRow{
+      display:grid;
+      grid-template-columns:auto 88px 1fr;
+      align-items:center;
+      gap:8px;
+      margin:0 0 10px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .ringGapRow input{
+      padding:6px 8px;
+    }
+
+    .ringGapHint{
+      color:var(--muted);
+      opacity:.9;
+    }
+
+    .layerColorControls{
+      margin-top:10px;
+      display:grid;
+      gap:8px;
+    }
+
+    .layerColorRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#11151b;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .layerColorRow input[type="color"]{
+      width:42px;
+      height:30px;
+      padding:2px;
+      border-radius:8px;
+      cursor:pointer;
+    }
+
+    .dot{
+      width:14px;
+      height:14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.25);
+      flex:0 0 auto;
+    }
+
+    .treeList{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.5;
+      white-space:pre-wrap;
+      max-height:260px;
+      overflow:auto;
+      padding:10px;
+      border-radius:12px;
+      background:#11151b;
+      border:1px solid var(--border);
+    }
+
+svg{
+  position:absolute;
+  display:block;
+  overflow:visible;
+}
+
+.ringGuide{
+  fill:none;
+  stroke:var(--ring);
+  stroke-width:1.2;
+  stroke-dasharray:6 8;
+}
+
+    .link{
+      fill:none;
+      stroke:var(--line);
+      stroke-width:1.6;
+    }
+
+    .link.deferred{
+      stroke:var(--lineDeferred);
+      stroke-dasharray:5 7;
+    }
+
+    .node circle{
+      stroke:rgba(255,255,255,.32);
+      stroke-width:1.5;
+      cursor:pointer;
+    }
+
+    .node text{
+      fill:var(--text);
+      font-size:12px;
+      paint-order:stroke;
+      stroke:#0f1115;
+      stroke-width:4px;
+      stroke-linejoin:round;
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .node .deferBadge{
+      font-size:10px;
+      font-weight:800;
+      fill:#ffffff;
+      stroke:#0f1115;
+      stroke-width:3px;
+      paint-order:stroke;
+      user-select:none;
+      pointer-events:none;
+    }
+
+    .node.active circle{
+      stroke:#ffffff;
+      stroke-width:2.4;
+    }
+
+    .node.active text{
+      font-weight:700;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(0,0,0,.6);
+      padding:20px;
+      z-index:20;
+    }
+
+    .overlay.open{display:flex}
+
+    .modal{
+      width:min(900px, 100%);
+      max-height:min(88vh, 900px);
+      overflow:auto;
+      background:linear-gradient(180deg, rgba(23,26,33,.98), rgba(23,26,33,.96));
+      border:1px solid var(--border);
+      border-radius:20px;
+      box-shadow:0 24px 80px rgba(0,0,0,.45);
+    }
+
+    .modalHead{
+      position:sticky;
+      top:0;
+      padding:14px 16px;
+      background:rgba(23,26,33,.98);
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      z-index:2;
+    }
+
+    .modalBody{padding:16px}
+
+    .modalActions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .deferControl{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:#11151b;
+      color:var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .deferControl input{
+      padding:6px 8px;
+      min-width:64px;
+      border-radius:10px;
+      font-size:12px;
+    }
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:#11151b;
+  font-size:12px;
+  color:var(--muted);
+}
+
+#zoomDisplay{
+  min-width:72px;
+  justify-content:center;
+  font-weight:700;
+}
+
+    .pageCard{
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px;
+      margin:0 0 12px;
+      background:#11151b;
+    }
+
+    .pageCard h3{
+      margin:0 0 6px;
+      font-size:14px;
+    }
+
+    .pageMeta{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+
+    .pageText{
+      white-space:pre-wrap;
+      line-height:1.45;
+      font-size:13px;
+      color:var(--text);
+    }
+
+    .empty{
+      color:var(--muted);
+      font-style:italic;
+    }
+
+    @media (max-width: 900px){
+      .app{grid-template-columns:1fr}
+      .sidebar{border-right:0;border-bottom:1px solid var(--border)}
+      .modalHead{flex-direction:column}
+      .modalActions{justify-content:flex-start}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <div>
+        <h1>Mind Library Network Map</h1>
+        <div class="sub">Import an exported book JSON from Mind Library and view its structure as a full radial dependency map.</div>
+      </div>
+<div class="controls">
+  <input id="fileInput" type="file" accept="application/json" />
+  <input id="importStateInput" type="file" accept="application/json" style="display:none;" />
+  <button id="sampleBtn" type="button">Load sample</button>
+  <button id="fitBtn" type="button">Recenter</button>
+  <button id="exportStateBtn" type="button">Export Map State</button>
+  <button id="importStateBtn" type="button">Import Map State</button>
+  <button id="printVersionBtn" type="button">Print Version</button>
+  <div id="zoomDisplay" class="pill">100%</div>
+</div>
+    </div>
+  </header>
+
+<div class="app" id="app">
+  <button id="sidebarToggle" class="sidebarToggle" type="button" aria-label="Hide sidebar">◀</button>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="card">
+      <h2>Loaded book</h2>
+      <div id="loadedName" class="hint">Nothing loaded yet.</div>
+      <div id="loadedStats" class="stat"></div>
+      <div id="currentCenterName" class="stat"></div>
+    </div>
+
+    <details class="card detailsCard">
+      <summary>Purpose</summary>
+      <div class="detailsBody hint">This version uses a full radial layout so each layer has much more space. Parent branches still own their own arc space instead of all nodes being evenly stacked in columns.</div>
+    </details>
+
+    <details class="card detailsCard">
+      <summary>How it works</summary>
+      <div class="detailsBody hint">Root book sits at the centre. Child books branch outward in full rings. Drag the map with the mouse to move around. Mouse wheel zooms in and out. Click any node to inspect pages and set its defer value.</div>
+      <div class="detailsBody">
+        <div class="legendRow"><span class="dot" style="background:#6b7280"></span> Book / section node</div>
+      </div>
+    </details>
+
+    <details class="card detailsCard">
+      <summary>Structure preview</summary>
+      <div class="detailsBody">
+        <div id="treeList" class="treeList">Load a book export to see its hierarchy here.</div>
+      </div>
+    </details>
+
+    <div class="card">
+      <h2>Layer node counts</h2>
+
+      <label class="optionRow">
+        <input id="focusMode" type="checkbox" />
+        <span>Focus mode</span>
+      </label>
+
+      <label class="optionRow">
+        <input id="useLayerColors" type="checkbox" />
+        <span>Use layer colours</span>
+      </label>
+
+      <label class="ringGapRow">
+        <span>Ring gap</span>
+        <input id="ringGapInput" type="number" min="60" step="10" value="180" />
+        <span class="ringGapHint">Default 180</span>
+      </label>
+
+      <label class="ringGapRow">
+        <span>Label wrap</span>
+        <input id="labelWrapInput" type="number" min="6" step="1" value="15" />
+        <span class="ringGapHint">Default 15</span>
+      </label>
+
+      <label class="ringGapRow">
+        <span>Print map %</span>
+        <input id="printScaleInput" type="number" min="25" step="5" value="100" />
+        <span class="ringGapHint">Default 100</span>
+      </label>
+
+      <label class="ringGapRow">
+        <span>Focus fade %</span>
+        <input id="focusFadeInput" type="number" min="0" max="100" step="2" value="18" />
+        <span class="ringGapHint">Default 18</span>
+      </label>
+
+      <div id="layerCounts" class="treeList">Load a book export to see node counts by display layer here.</div>
+      <div id="layerColorControls" class="layerColorControls"></div>
+    </div>
+  </aside>
+
+    <main class="stageWrap" id="stageWrap">
+      <div class="stageInner" id="stageInner">
+        <svg id="mapSvg" width="1800" height="1400" viewBox="0 0 1800 1400" aria-label="Mind Library network map"></svg>
+      </div>
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="modalHead">
+        <div>
+          <div id="modalTitle" style="font-size:18px;font-weight:800;"></div>
+          <div id="modalMeta" class="hint"></div>
+        </div>
+
+        <div class="modalActions">
+          <label class="deferControl">
+            <span>Defer</span>
+            <input id="deferInput" type="number" min="0" step="1" value="0" />
+          </label>
+
+          <label class="optionRow" style="margin:0;">
+            <input id="doneInput" type="checkbox" />
+            <span>Done</span>
+          </label>
+
+          <label class="optionRow" style="margin:0;">
+            <input id="focusInput" type="checkbox" />
+            <span>Focus</span>
+          </label>
+
+          <label class="optionRow" style="margin:0;">
+            <input id="centerInput" type="checkbox" />
+            <span>Center</span>
+          </label>
+
+          <button id="closeOverlayBtn" type="button">Close</button>
+        </div>
+      </div>
+
+      <div class="modalBody" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const DEFER_STORAGE_KEY = 'mindLibraryNetworkMap.deferByKey.v1';
+    const LAYER_COLORS_STORAGE_KEY = 'mindLibraryNetworkMap.layerColors.v1';
+    const USE_LAYER_COLORS_STORAGE_KEY = 'mindLibraryNetworkMap.useLayerColors.v1';
+    const SIDEBAR_COLLAPSED_STORAGE_KEY = 'mindLibraryNetworkMap.sidebarCollapsed.v1';
+    const RING_GAP_STORAGE_KEY = 'mindLibraryNetworkMap.ringGap.v1';
+    const LABEL_WRAP_STORAGE_KEY = 'mindLibraryNetworkMap.labelWrap.v1';
+const NODE_STATE_STORAGE_KEY = 'mindLibraryNetworkMap.nodeStates.v1';
+const FOCUS_MODE_STORAGE_KEY = 'mindLibraryNetworkMap.focusMode.v1';
+const CENTER_NODE_STORAGE_KEY = 'mindLibraryNetworkMap.centerNode.v1';
+const PRINT_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.printScale.v1';
+const FOCUS_FADE_STORAGE_KEY = 'mindLibraryNetworkMap.focusFade.v1';
+
+const fileInput = document.getElementById('fileInput');
+const importStateInput = document.getElementById('importStateInput');
+const sampleBtn = document.getElementById('sampleBtn');
+const fitBtn = document.getElementById('fitBtn');
+const exportStateBtn = document.getElementById('exportStateBtn');
+const importStateBtn = document.getElementById('importStateBtn');
+const printVersionBtn = document.getElementById('printVersionBtn');
+const loadedName = document.getElementById('loadedName');
+const loadedStats = document.getElementById('loadedStats');
+const currentCenterName = document.getElementById('currentCenterName');
+const treeList = document.getElementById('treeList');
+const layerCounts = document.getElementById('layerCounts');
+const layerColorControls = document.getElementById('layerColorControls');
+const focusMode = document.getElementById('focusMode');
+const useLayerColors = document.getElementById('useLayerColors');
+const ringGapInput = document.getElementById('ringGapInput');
+const labelWrapInput = document.getElementById('labelWrapInput');
+const printScaleInput = document.getElementById('printScaleInput');
+const focusFadeInput = document.getElementById('focusFadeInput');
+const mapSvg = document.getElementById('mapSvg');
+const stageWrap = document.getElementById('stageWrap');
+const stageInner = document.getElementById('stageInner');
+const overlay = document.getElementById('overlay');
+const closeOverlayBtn = document.getElementById('closeOverlayBtn');
+const modalTitle = document.getElementById('modalTitle');
+const modalMeta = document.getElementById('modalMeta');
+const modalBody = document.getElementById('modalBody');
+const deferInput = document.getElementById('deferInput');
+const doneInput = document.getElementById('doneInput');
+const focusInput = document.getElementById('focusInput');
+const centerInput = document.getElementById('centerInput');
+const zoomDisplay = document.getElementById('zoomDisplay');
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const app = document.getElementById('app');
+
+let currentRoot = null;
+let renderedNodes = [];
+let renderedLinks = [];
+let activeNodeId = '';
+let activeNodeKey = '';
+let currentLayoutSize = { width: 1800, height: 1400 };
+let zoomLevel = 1;
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 2.2;
+const ZOOM_STEP = 0.1;
+const CANVAS_BUFFER = 2200;
+let dragState = {
+  isDown: false,
+  moved: false,
+  startX: 0,
+  startY: 0,
+  startScrollLeft: 0,
+  startScrollTop: 0
+};
+
+    let deferByKey = loadDeferMap();
+    let layerColors = loadLayerColors();
+    let layerColorMode = loadUseLayerColors();
+let sidebarCollapsed = loadSidebarCollapsed();
+let ringGapValue = loadRingGap();
+let labelWrapValue = loadLabelWrap();
+let printScaleValue = loadPrintScale();
+let focusFadeValue = loadFocusFade();
+let nodeStates = loadNodeStates();
+let focusModeEnabled = loadFocusMode();
+let centerNodeKey = loadCenterNodeKey();
+
+    const SAMPLE = {
+      meta:{app:'Mind Library', type:'single-book'},
+      book:{
+        id:'root',
+        name:'SOD - Full Specs',
+        color:'#925fdd',
+        textColor:'#ffffff',
+        pages:[
+          {title:'Purpose', text:'Main master book for Strands of Dolon structure.'},
+          {title:'Priority thinking', text:'Use the map to identify what must exist at layer 1, 2, 3 and beyond.'}
+        ],
+        children:[
+          {
+            id:'hub',
+            name:'Hub Space',
+            color:'#4c8df5',
+            textColor:'#ffffff',
+            pages:[{title:'Basic requirement', text:'Need a basic playable hub before polish.'}],
+            children:[
+              {id:'strand-object', name:'Strand Object', color:'#4fbf84', textColor:'#ffffff', pages:[{title:'Start simple', text:'Basic interaction first. Fancy visuals later.'}], children:[]},
+              {id:'forge', name:'Forge', color:'#c87744', textColor:'#ffffff', pages:[{title:'MVP', text:'Single forge station, placeholder mesh, basic logic only.'}], children:[]}
+            ]
+          },
+          {
+            id:'arena',
+            name:'Arena Space',
+            color:'#db5d6c',
+            textColor:'#ffffff',
+            pages:[{title:'Goal', text:'Simple combat loop, readable layout, no polish needed yet.'}],
+            children:[
+              {id:'enemy', name:'Enemy Test Dummy', color:'#6b7280', textColor:'#ffffff', pages:[{title:'Purpose', text:'Shared logic target for combat testing.'}], children:[]},
+              {id:'player', name:'Player Basic Moves', color:'#e2b245', textColor:'#000000', pages:[{title:'Need', text:'Walk, attack, block, dodge.'}], children:[]}
+            ]
+          }
+        ]
+      }
+    };
+
+    function loadDeferMap(){
+      try{
+        const raw = localStorage.getItem(DEFER_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      }catch{
+        return {};
+      }
+    }
+
+    function saveDeferMap(){
+      try{
+        localStorage.setItem(DEFER_STORAGE_KEY, JSON.stringify(deferByKey));
+      }catch(err){
+        console.warn('Could not save defer settings.', err);
+      }
+    }
+
+    function loadLayerColors(){
+      try{
+        const raw = localStorage.getItem(LAYER_COLORS_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      }catch{
+        return {};
+      }
+    }
+
+    function saveLayerColors(){
+      try{
+        localStorage.setItem(LAYER_COLORS_STORAGE_KEY, JSON.stringify(layerColors));
+      }catch(err){
+        console.warn('Could not save layer colours.', err);
+      }
+    }
+
+    function loadUseLayerColors(){
+      try{
+        return localStorage.getItem(USE_LAYER_COLORS_STORAGE_KEY) === 'true';
+      }catch{
+        return false;
+      }
+    }
+
+    function saveUseLayerColors(){
+      try{
+        localStorage.setItem(USE_LAYER_COLORS_STORAGE_KEY, String(layerColorMode));
+      }catch(err){
+        console.warn('Could not save layer colour mode.', err);
+      }
+    }
+
+    function loadSidebarCollapsed(){
+      try{
+        return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+      }catch{
+        return false;
+      }
+    }
+
+    function saveSidebarCollapsed(){
+      try{
+        localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
+      }catch(err){
+        console.warn('Could not save sidebar state.', err);
+      }
+    }
+
+    function loadRingGap(){
+      try{
+        const value = Number(localStorage.getItem(RING_GAP_STORAGE_KEY));
+        return Number.isFinite(value) && value >= 60 ? value : 180;
+      }catch{
+        return 180;
+      }
+    }
+
+function saveRingGap(){
+  try{
+    localStorage.setItem(RING_GAP_STORAGE_KEY, String(ringGapValue));
+  }catch(err){
+    console.warn('Could not save ring gap.', err);
+  }
+}
+
+function loadLabelWrap(){
+  try{
+    const value = Number(localStorage.getItem(LABEL_WRAP_STORAGE_KEY));
+    return Number.isFinite(value) && value >= 6 ? value : 15;
+  }catch{
+    return 15;
+  }
+}
+
+function saveLabelWrap(){
+  try{
+    localStorage.setItem(LABEL_WRAP_STORAGE_KEY, String(labelWrapValue));
+  }catch(err){
+    console.warn('Could not save label wrap.', err);
+  }
+}
+
+function loadPrintScale(){
+  try{
+    const value = Number(localStorage.getItem(PRINT_SCALE_STORAGE_KEY));
+    return Number.isFinite(value) && value >= 25 ? value : 100;
+  }catch{
+    return 100;
+  }
+}
+
+function savePrintScale(){
+  try{
+    localStorage.setItem(PRINT_SCALE_STORAGE_KEY, String(printScaleValue));
+  }catch(err){
+    console.warn('Could not save print scale.', err);
+  }
+}
+
+function loadFocusFade(){
+  try{
+    const value = Number(localStorage.getItem(FOCUS_FADE_STORAGE_KEY));
+    return Number.isFinite(value)
+      ? Math.max(0, Math.min(100, Math.floor(value)))
+      : 18;
+  }catch{
+    return 18;
+  }
+}
+
+function saveFocusFade(){
+  try{
+    localStorage.setItem(FOCUS_FADE_STORAGE_KEY, String(focusFadeValue));
+  }catch(err){
+    console.warn('Could not save focus fade.', err);
+  }
+}
+
+function loadNodeStates(){
+  try{
+    const raw = localStorage.getItem(NODE_STATE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  }catch{
+    return {};
+  }
+}
+
+function saveNodeStates(){
+  try{
+    localStorage.setItem(NODE_STATE_STORAGE_KEY, JSON.stringify(nodeStates));
+  }catch(err){
+    console.warn('Could not save node states.', err);
+  }
+}
+
+function getNodeState(nodeKey){
+  return nodeStates[nodeKey] || { done:false, focus:false };
+}
+
+function setNodeState(nodeKey, nextState){
+  nodeStates[nodeKey] = {
+    done: !!nextState.done,
+    focus: !!nextState.focus
+  };
+  saveNodeStates();
+}
+
+function loadFocusMode(){
+  try{
+    return localStorage.getItem(FOCUS_MODE_STORAGE_KEY) === 'true';
+  }catch{
+    return false;
+  }
+}
+
+function saveFocusMode(){
+  try{
+    localStorage.setItem(FOCUS_MODE_STORAGE_KEY, String(focusModeEnabled));
+  }catch(err){
+    console.warn('Could not save focus mode.', err);
+  }
+}
+
+function loadCenterNodeKey(){
+  try{
+    return localStorage.getItem(CENTER_NODE_STORAGE_KEY) || '';
+  }catch{
+    return '';
+  }
+}
+
+function saveCenterNodeKey(){
+  try{
+    localStorage.setItem(CENTER_NODE_STORAGE_KEY, centerNodeKey || '');
+  }catch(err){
+    console.warn('Could not save center node.', err);
+  }
+}
+
+function buildMapStateExport(){
+  return {
+    type: 'mind-library-network-map-state',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    state: {
+      deferByKey,
+      layerColors,
+      layerColorMode,
+      sidebarCollapsed,
+      ringGapValue,
+      labelWrapValue,
+      printScaleValue,
+      focusFadeValue,
+      nodeStates,
+      focusModeEnabled,
+      centerNodeKey
+    }
+  };
+}
+
+function exportMapState(){
+  try{
+    const payload = buildMapStateExport();
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mind-library-network-map-state-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }catch(err){
+    console.error(err);
+    alert('Could not export map state.');
+  }
+}
+
+function applyImportedMapState(payload){
+  const incoming = payload && payload.state ? payload.state : null;
+
+  if (!incoming || payload.type !== 'mind-library-network-map-state') {
+    throw new Error('Invalid map state file.');
+  }
+
+  deferByKey = incoming.deferByKey && typeof incoming.deferByKey === 'object' ? incoming.deferByKey : {};
+  layerColors = incoming.layerColors && typeof incoming.layerColors === 'object' ? incoming.layerColors : {};
+  layerColorMode = !!incoming.layerColorMode;
+  sidebarCollapsed = !!incoming.sidebarCollapsed;
+  ringGapValue = Number.isFinite(Number(incoming.ringGapValue)) ? Math.max(60, Math.floor(Number(incoming.ringGapValue))) : 180;
+  labelWrapValue = Number.isFinite(Number(incoming.labelWrapValue)) ? Math.max(6, Math.floor(Number(incoming.labelWrapValue))) : 15;
+  printScaleValue = Number.isFinite(Number(incoming.printScaleValue)) ? Math.max(25, Math.floor(Number(incoming.printScaleValue))) : 100;
+  focusFadeValue = Number.isFinite(Number(incoming.focusFadeValue))
+    ? Math.max(0, Math.min(100, Math.floor(Number(incoming.focusFadeValue))))
+    : 18;
+  nodeStates = incoming.nodeStates && typeof incoming.nodeStates === 'object' ? incoming.nodeStates : {};
+  focusModeEnabled = !!incoming.focusModeEnabled;
+  centerNodeKey = typeof incoming.centerNodeKey === 'string' ? incoming.centerNodeKey : '';
+
+  saveDeferMap();
+  saveLayerColors();
+  saveUseLayerColors();
+  saveSidebarCollapsed();
+  saveRingGap();
+  saveLabelWrap();
+  savePrintScale();
+  saveFocusFade();
+  saveNodeStates();
+  saveFocusMode();
+  saveCenterNodeKey();
+
+  focusMode.checked = focusModeEnabled;
+  useLayerColors.checked = layerColorMode;
+  ringGapInput.value = String(ringGapValue);
+  labelWrapInput.value = String(labelWrapValue);
+  printScaleInput.value = String(printScaleValue);
+  focusFadeInput.value = String(focusFadeValue);
+
+  applySidebarState();
+}
+
+function buildPrintDocumentHtml(){
+  const visualRoot = currentRoot ? getVisualRoot(currentRoot) : null;
+  const title = loadedName.textContent || 'Mind Library Network Map';
+  const centerName = visualRoot ? visualRoot.name : title;
+  const printScalePercent = Math.max(25, Math.floor(Number(printScaleValue) || 100));
+
+  const clone = mapSvg.cloneNode(true);
+  clone.style.position = 'static';
+  clone.style.left = '0';
+  clone.style.top = '0';
+  clone.style.display = 'block';
+  clone.style.overflow = 'visible';
+  clone.style.width = '';
+  clone.style.height = 'auto';
+
+  const svgMarkup = new XMLSerializer().serializeToString(clone);
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(title)} — Print Version</title>
+  <style>
+    @page {
+      size: auto;
+      margin: 5mm;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #111111;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    body {
+      padding: 3mm 5mm 5mm;
+    }
+
+    .printHead {
+      margin-bottom: 2mm;
+      border-bottom: 1px solid #d8d8d8;
+      padding-bottom: 1.5mm;
+    }
+
+    .printHead h1 {
+      margin: 0 0 1mm;
+      font-size: 17px;
+      line-height: 1.1;
+    }
+
+    .meta {
+      font-size: 10.5px;
+      color: #444444;
+      line-height: 1.2;
+    }
+
+    .printMapWrap {
+      width: 100%;
+      overflow: visible;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      margin-top: 0;
+      padding-top: 0;
+    }
+
+    svg {
+      display: block;
+      flex: 0 0 auto;
+      width: ${printScalePercent}%;
+      max-width: none;
+      height: auto;
+      position: static !important;
+      overflow: visible;
+      background: #ffffff;
+      margin: 0 auto;
+    }
+
+    .ringGuide {
+      fill: none;
+      stroke: rgba(0,0,0,.10);
+      stroke-width: 1.2;
+      stroke-dasharray: 6 8;
+    }
+
+    .link {
+      fill: none;
+      stroke: rgba(0,0,0,.35);
+      stroke-width: 1.5;
+    }
+
+    .link.deferred {
+      stroke: rgba(0,0,0,.45);
+      stroke-dasharray: 5 7;
+    }
+
+    .node circle {
+      stroke: rgba(0,0,0,.45);
+      stroke-width: 1.2;
+    }
+
+    .node text {
+      fill: #111111;
+      stroke: #ffffff;
+      stroke-width: 4px;
+      paint-order: stroke;
+      stroke-linejoin: round;
+      font-size: 12px;
+    }
+
+    .node .deferBadge {
+      fill: #111111;
+      stroke: #ffffff;
+      stroke-width: 3px;
+      paint-order: stroke;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .node.active circle {
+      stroke: #111111;
+      stroke-width: 2;
+    }
+
+    @media print {
+      .printHead {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="printHead">
+    <h1>${escapeHtml(title)}</h1>
+    <div class="meta">Current center: ${escapeHtml(centerName)}</div>
+  </div>
+
+  <div class="printMapWrap">
+    ${svgMarkup}
+  </div>
+
+  <script>
+    window.addEventListener('load', () => {
+      setTimeout(() => window.print(), 150);
+    });
+  <\/script>
+</body>
+</html>`;
+}
+
+function openPrintVersion(){
+  if (!currentRoot) {
+    alert('Load a book first.');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Could not open print window. Please allow popups for this page.');
+    return;
+  }
+
+  const html = buildPrintDocumentHtml();
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+function applySidebarState(){  if (sidebarCollapsed) {
+    app.classList.add('sidebarCollapsed');
+    sidebarToggle.textContent = '▶';
+    sidebarToggle.setAttribute('aria-label', 'Show sidebar');
+  } else {
+    app.classList.remove('sidebarCollapsed');
+    sidebarToggle.textContent = '◀';
+    sidebarToggle.setAttribute('aria-label', 'Hide sidebar');
+  }
+}
+    function getDisplayColorForNode(node){
+      if (!layerColorMode) return node.color;
+      const layerNumber = node.absoluteLayer || (node.displayLayer + 1);
+      const chosen = String(layerColors[layerNumber] || '').trim();
+      return /^#([0-9a-f]{6})$/i.test(chosen) ? chosen : '#6b7280';
+    }
+
+    function refreshNodeCircleColors(){
+      if (!renderedNodes.length) return;
+
+      const nodeById = new Map(renderedNodes.map(node => [node.id, node]));
+
+      mapSvg.querySelectorAll('.node').forEach(group => {
+        const nodeId = group.dataset.nodeId;
+        const node = nodeById.get(nodeId);
+        if (!node) return;
+
+        const circle = group.querySelector('circle');
+        if (!circle) return;
+
+        circle.setAttribute('fill', getDisplayColorForNode(node));
+      });
+    }
+
+    function getNodeDefer(node){
+      const value = Number(deferByKey[node.key] ?? 0);
+      if (!Number.isFinite(value) || value < 0) return 0;
+      return Math.floor(value);
+    }
+
+    function setNodeDefer(nodeKey, value){
+      const safeValue = Math.max(0, Math.floor(Number(value) || 0));
+      if (safeValue <= 0) {
+        delete deferByKey[nodeKey];
+      } else {
+        deferByKey[nodeKey] = safeValue;
+      }
+      saveDeferMap();
+    }
+
+function normalizeBook(raw){
+  const book = raw && raw.book ? raw.book : raw;
+  if (!book || typeof book !== 'object') return null;
+  return normalizeNode(book, [], 1);
+}
+
+function normalizeNode(node, path, inheritedAbsoluteLayer = 1){
+  const name = String(node.name || 'Untitled Book');
+  const key = String(
+    node.id
+      ? `id:${node.id}`
+      : `path:${[...path, name].join(' > ')}`
+  );
+
+  const nextPath = [...path, name];
+  const defer = Math.max(0, Math.floor(Number(deferByKey[key] ?? 0) || 0));
+  const absoluteLayer = inheritedAbsoluteLayer;
+
+  return {
+    id: String(node.id || key),
+    key,
+    name,
+    color: normalizeColor(node.color || '#6b7280'),
+    textColor: normalizeColor(node.textColor || '#ffffff'),
+    pages: normalizePages(node.pages, node.notes),
+    originalLayer: path.length + 1,
+    absoluteLayer,
+    children: Array.isArray(node.children)
+      ? node.children.map(child => normalizeNode(child, nextPath, absoluteLayer + 1 + Math.max(0, Math.floor(Number(deferByKey[String(child.id ? `id:${child.id}` : `path:${[...nextPath, String(child.name || 'Untitled Book')].join(' > ')}`)] ?? 0) || 0))))
+      : []
+  };
+}
+
+    function normalizePages(pages, notes){
+      if (Array.isArray(pages)) {
+        return pages.map((p) => {
+          if (typeof p === 'string') return { title:'', text:p };
+          return {
+            title: String(p?.title || ''),
+            text: String(p?.text || '')
+          };
+        });
+      }
+      return [{ title:'', text:String(notes || '') }];
+    }
+
+    function normalizeColor(v){
+      const s = String(v || '').trim();
+      return /^#([0-9a-f]{6})$/i.test(s) ? s : '#6b7280';
+    }
+
+function computeLeafWeight(node){
+  if (!node.children.length) return 1;
+  const total = node.children.reduce((sum, child) => sum + computeLeafWeight(child), 0);
+  return Math.max(1, total);
+}
+
+function findNodeByKey(node, key){
+  if (!node || !key) return null;
+  if (node.key === key) return node;
+  for (const child of node.children || []) {
+    const found = findNodeByKey(child, key);
+    if (found) return found;
+  }
+  return null;
+}
+
+function getVisualRoot(root){
+  const chosen = findNodeByKey(root, centerNodeKey);
+  return chosen || root;
+}
+
+function recomputeAbsoluteLayers(node, inheritedAbsoluteLayer = 1){
+  if (!node) return;
+
+  node.absoluteLayer = inheritedAbsoluteLayer;
+
+  for (const child of node.children || []) {
+    recomputeAbsoluteLayers(child, inheritedAbsoluteLayer + 1 + getNodeDefer(child));
+  }
+}
+
+function flattenTreeRadial(root){
+  const nodes = [];
+  const links = [];
+
+const startAngleDeg = -90;
+const endAngleDeg = 270;
+  const ringGap = ringGapValue;
+  const sidePad = 240;
+  const topPad = 160;
+  const bottomPad = 170;
+  const siblingGapDeg = 4;
+
+  const visualRoot = getVisualRoot(root);
+  const rootWeight = computeLeafWeight(visualRoot);
+
+  let maxDisplayLayer = 0;
+
+  function previewDepth(node, parentDisplayLayer){
+    const displayLayer = node === visualRoot ? 0 : parentDisplayLayer + 1 + getNodeDefer(node);
+    maxDisplayLayer = Math.max(maxDisplayLayer, displayLayer);
+    node.children.forEach(child => previewDepth(child, displayLayer));
+  }
+
+  previewDepth(visualRoot, 0);
+
+const maxRadius = Math.max(1, maxDisplayLayer) * ringGap;
+const naturalWidth = sidePad * 2 + maxRadius * 2 + 300;
+const naturalHeight = topPad + bottomPad + maxRadius * 2 + 300;
+
+const width = Math.max(1100, naturalWidth);
+const height = Math.max(900, naturalHeight);
+
+const centerX = width / 2;
+const centerY = height / 2;
+
+      function degToRad(deg){
+        return deg * Math.PI / 180;
+      }
+
+      function pointAt(radius, angleDeg){
+        const rad = degToRad(angleDeg);
+        return {
+          x: centerX + radius * Math.cos(rad),
+          y: centerY + radius * Math.sin(rad)
+        };
+      }
+
+      function layoutNode(node, structuralDepth, displayLayer, angleStart, angleEnd, parentItem){
+        const midAngle = (angleStart + angleEnd) / 2;
+        const radius = displayLayer * ringGap;
+        const point = pointAt(radius, midAngle);
+        const defer = getNodeDefer(node);
+
+        const item = {
+          id: node.id,
+          key: node.key,
+          name: node.name,
+          color: node.color,
+          textColor: node.textColor,
+          structuralDepth,
+          displayLayer,
+          absoluteLayer: node.absoluteLayer,
+          originalLayer: node.originalLayer,
+          angleStart,
+          angleEnd,
+          angle: midAngle,
+          radius,
+          x: point.x,
+          y: point.y,
+          pages: node.pages,
+          childCount: node.children.length,
+          defer,
+          ref: node
+        };
+
+        nodes.push(item);
+
+        if (parentItem) {
+          links.push({
+            source: parentItem.id,
+            target: item.id,
+            deferred: defer > 0
+          });
+        }
+
+        if (!node.children.length) return item;
+
+        const weights = node.children.map(child => computeLeafWeight(child));
+        const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+        const totalGap = siblingGapDeg * Math.max(0, node.children.length - 1);
+        const availableAngle = Math.max(8, (angleEnd - angleStart) - totalGap);
+
+        let cursor = angleStart;
+
+        node.children.forEach((child, index) => {
+          const weight = weights[index];
+          const span = node.children.length === 1
+            ? (angleEnd - angleStart)
+            : availableAngle * (weight / totalWeight);
+
+          const childStart = node.children.length === 1 ? angleStart : cursor;
+          const childEnd = node.children.length === 1 ? angleEnd : cursor + span;
+          const childDisplayLayer = displayLayer + 1 + getNodeDefer(child);
+
+          layoutNode(
+            child,
+            structuralDepth + 1,
+            childDisplayLayer,
+            childStart,
+            childEnd,
+            item
+          );
+
+          cursor = childEnd + siblingGapDeg;
+        });
+
+        return item;
+      }
+
+      layoutNode(visualRoot, visualRoot.displayLayer || 0, 0, startAngleDeg, endAngleDeg, null);
+
+      return {
+        nodes,
+        links,
+        width,
+        height,
+        centerX,
+        centerY,
+        maxDisplayLayer,
+        ringGap
+      };
+    }
+
+    function makeRingArcPath(cx, cy, radius, startDeg, endDeg){
+      const start = polarPoint(cx, cy, radius, startDeg);
+      const end = polarPoint(cx, cy, radius, endDeg);
+      const largeArcFlag = (endDeg - startDeg) > 180 ? 1 : 0;
+      return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
+    }
+
+    function polarPoint(cx, cy, radius, deg){
+      const rad = deg * Math.PI / 180;
+      return {
+        x: cx + radius * Math.cos(rad),
+        y: cy + radius * Math.sin(rad)
+      };
+    }
+
+function makeLinkPath(source, target, cx, cy){
+  const p1 = { x: source.x, y: source.y };
+  const p2 = { x: target.x, y: target.y };
+
+  const c1 = polarPoint(cx, cy, source.radius + (target.radius - source.radius) * 0.42, source.angle);
+  const c2 = polarPoint(cx, cy, source.radius + (target.radius - source.radius) * 0.78, target.angle);
+
+  return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p2.x} ${p2.y}`;
+}
+
+function wrapLabelText(text, maxChars){
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+
+  const lines = [];
+  let current = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const next = words[i];
+    if ((current + ' ' + next).length <= maxChars) {
+      current += ' ' + next;
+    } else {
+      lines.push(current);
+      current = next;
+    }
+  }
+
+  lines.push(current);
+  return lines;
+}
+
+function getNodeRadius(node){
+  const state = getNodeState(node.key);
+  if (state.done) return 20;
+  if (state.focus) return 15;
+  return 10;
+}
+
+function shouldFadeNode(node){
+  if (!focusModeEnabled) return false;
+  const state = getNodeState(node.key);
+  return !state.done && !state.focus;
+}
+
+    function renderMap(root, opts = {}){
+      const preserveView = !!opts.preserveView;
+      const savedScroll = preserveView ? {
+        left: stageWrap.scrollLeft,
+        top: stageWrap.scrollTop
+      } : null;
+
+            currentRoot = root;
+
+      if (centerNodeKey && !findNodeByKey(root, centerNodeKey)) {
+        centerNodeKey = '';
+        saveCenterNodeKey();
+      }
+
+      const flat = flattenTreeRadial(root);
+      renderedNodes = flat.nodes;
+      renderedLinks = flat.links;
+      currentLayoutSize = { width: flat.width, height: flat.height };
+
+      mapSvg.setAttribute('width', flat.width);
+      mapSvg.setAttribute('height', flat.height);
+      mapSvg.setAttribute('viewBox', `0 0 ${flat.width} ${flat.height}`);
+      mapSvg.style.left = `${CANVAS_BUFFER * 0.65}px`;
+      mapSvg.style.top = `${CANVAS_BUFFER * 0.65}px`;
+      mapSvg.innerHTML = '';
+
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      mapSvg.appendChild(defs);
+
+      const guidesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const linksGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+      mapSvg.appendChild(guidesGroup);
+      mapSvg.appendChild(linksGroup);
+      mapSvg.appendChild(nodesGroup);
+
+for (let layer = 1; layer <= flat.maxDisplayLayer; layer++) {
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('class', 'ringGuide');
+  circle.setAttribute('cx', flat.centerX);
+  circle.setAttribute('cy', flat.centerY);
+  circle.setAttribute('r', layer * flat.ringGap);
+  guidesGroup.appendChild(circle);
+}
+
+      flat.links.forEach(link => {
+        const s = flat.nodes.find(n => n.id === link.source);
+        const t = flat.nodes.find(n => n.id === link.target);
+        if (!s || !t) return;
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('class', 'link' + (link.deferred ? ' deferred' : ''));
+        path.setAttribute('d', makeLinkPath(s, t, flat.centerX, flat.centerY));
+
+const fadeLink = focusModeEnabled && (shouldFadeNode(s) || shouldFadeNode(t));
+path.style.opacity = fadeLink ? String(focusFadeValue / 100) : '1';
+
+        linksGroup.appendChild(path);
+      });
+
+      flat.nodes.forEach(node => {
+        const faded = shouldFadeNode(node);
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'node' + (node.id === activeNodeId ? ' active' : ''));
+        g.dataset.nodeId = node.id;
+        g.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+        g.style.opacity = faded ? String(focusFadeValue / 100) : '1';
+
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('r', getNodeRadius(node));
+        circle.setAttribute('fill', getDisplayColorForNode(node));
+        g.appendChild(circle);
+
+        if (node.defer > 0) {
+          const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          badge.setAttribute('class', 'deferBadge');
+          badge.setAttribute('text-anchor', 'middle');
+          badge.setAttribute('x', 0);
+          badge.setAttribute('y', 4);
+          badge.textContent = `+${node.defer}`;
+          g.appendChild(badge);
+        }
+
+        const labelOffset = 30;
+        const rad = node.angle * Math.PI / 180;
+        const dx = Math.cos(rad) * labelOffset;
+        const dy = Math.sin(rad) * labelOffset;
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', dx);
+        text.setAttribute('y', dy + 4);
+
+        if (Math.cos(rad) < -0.18) {
+          text.setAttribute('text-anchor', 'end');
+        } else if (Math.cos(rad) > 0.18) {
+          text.setAttribute('text-anchor', 'start');
+        } else {
+          text.setAttribute('text-anchor', 'middle');
+        }
+
+        const wrappedLines = wrapLabelText(node.name, labelWrapValue);
+
+        wrappedLines.forEach((line, index) => {
+          const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+          tspan.setAttribute('x', dx);
+          tspan.setAttribute('dy', index === 0 ? 0 : 14);
+          tspan.textContent = line;
+          text.appendChild(tspan);
+        });
+
+        g.appendChild(text);
+
+        g.addEventListener('click', () => {
+          if (dragState.moved) return;
+          openNodeOverlay(node.id);
+        });
+
+        nodesGroup.appendChild(g);
+      });
+
+      updateSidebar(root, flat.nodes);
+
+      if (preserveView && savedScroll) {
+        stageWrap.scrollTo(savedScroll.left, savedScroll.top);
+      } else {
+        recenterView();
+      }
+    }
+
+function updateSidebar(root, nodes){
+  loadedName.textContent = root.name;
+  const pageCount = countPages(root);
+  const noteCount = countNonEmptyPages(root);
+  const visualRoot = getVisualRoot(root);
+
+  loadedStats.textContent = `${nodes.length} nodes • ${pageCount} pages • ${noteCount} pages with content`;
+  currentCenterName.textContent = `Current center: ${visualRoot ? visualRoot.name : root.name}`;
+  treeList.textContent = makeTreeText(root, 0);
+  layerCounts.textContent = makeLayerCountsText(nodes);
+  renderLayerColorControls(nodes);
+}
+
+function makeTreeText(node, depth){
+  const defer = getNodeDefer(node);
+  const suffix = defer > 0 ? ` (defer +${defer})` : '';
+  const line = `${'  '.repeat(depth)}• ${node.name}${suffix}`;
+  const children = node.children.map(child => makeTreeText(child, depth + 1));
+  return [line, ...children].join('\n');
+}
+
+function makeLayerCountsText(nodes){
+  const counts = new Map();
+
+  nodes.forEach(node => {
+    const layerNumber = node.absoluteLayer || (node.displayLayer + 1);
+    counts.set(layerNumber, (counts.get(layerNumber) || 0) + 1);
+  });
+
+  const sortedLayers = [...counts.keys()].sort((a, b) => a - b);
+
+  if (!sortedLayers.length) {
+    return 'No layers available.';
+  }
+
+  return sortedLayers
+    .map(layer => `Layer ${layer} • ${counts.get(layer)} node${counts.get(layer) === 1 ? '' : 's'}`)
+    .join('\n');
+}
+
+function renderLayerColorControls(nodes){
+  const layers = [...new Set(nodes.map(node => node.absoluteLayer || (node.displayLayer + 1)))].sort((a, b) => a - b);
+
+  if (!layers.length) {
+    layerColorControls.innerHTML = '';
+    return;
+  }
+
+  layerColorControls.innerHTML = layers.map(layer => {
+    const value = /^#([0-9a-f]{6})$/i.test(String(layerColors[layer] || '').trim())
+      ? layerColors[layer]
+      : '#6b7280';
+
+    return `
+      <label class="layerColorRow">
+        <span>Layer ${layer} colour</span>
+        <input type="color" value="${value}" data-layer-color="${layer}">
+      </label>
+    `;
+  }).join('');
+
+  layerColorControls.querySelectorAll('input[data-layer-color]').forEach(input => {
+    input.addEventListener('input', (e) => {
+      const layer = String(e.target.dataset.layerColor);
+      layerColors[layer] = e.target.value;
+      saveLayerColors();
+      refreshNodeCircleColors();
+    });
+
+    input.addEventListener('change', (e) => {
+      const layer = String(e.target.dataset.layerColor);
+      layerColors[layer] = e.target.value;
+      saveLayerColors();
+      if (currentRoot) renderMap(currentRoot, { preserveView:true });
+    });
+  });
+}
+    function countPages(node){
+      return node.pages.length + node.children.reduce((sum, child) => sum + countPages(child), 0);
+    }
+
+    function countNonEmptyPages(node){
+      const own = node.pages.filter(p => (p.title || '').trim() || (p.text || '').trim()).length;
+      return own + node.children.reduce((sum, child) => sum + countNonEmptyPages(child), 0);
+    }
+
+    function openNodeOverlay(nodeId){
+      const node = renderedNodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      activeNodeId = nodeId;
+      activeNodeKey = node.key;
+      renderMap(currentRoot, { preserveView:true });
+
+      modalTitle.textContent = node.name;
+      const shownLayer = node.absoluteLayer || node.originalLayer || (node.displayLayer + 1);
+
+      modalMeta.innerHTML =
+        `<span class="pill"><span class="dot" style="background:${node.color}"></span>${node.key === (getVisualRoot(currentRoot)?.key || currentRoot.key) ? 'Center view' : 'Layer ' + shownLayer}</span> ` +
+        `<span class="pill">${node.childCount} child books</span> ` +
+        `<span class="pill">${node.pages.length} page${node.pages.length === 1 ? '' : 's'}</span>` +
+        (node.defer > 0 ? ` <span class="pill">Defer +${node.defer}</span>` : '');
+
+      const state = getNodeState(node.key);
+      deferInput.value = String(node.defer || 0);
+      doneInput.checked = !!state.done;
+      focusInput.checked = !!state.focus;
+      centerInput.checked = centerNodeKey === node.key;
+
+      if (!node.pages.length) {
+        modalBody.innerHTML = `<div class="empty">No pages found in this book.</div>`;
+      } else {
+        modalBody.innerHTML = node.pages.map((page, i) => {
+          const title = (page.title || '').trim() || 'Untitled page';
+          const text = (page.text || '').trim();
+          return `
+            <div class="pageCard">
+              <h3>${escapeHtml(title)}</h3>
+              <div class="pageMeta">Page ${i + 1}</div>
+              <div class="pageText ${text ? '' : 'empty'}">${text ? escapeHtml(text) : 'No notes on this page.'}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      overlay.classList.add('open');
+    }
+
+    function closeOverlay(){
+      overlay.classList.remove('open');
+      activeNodeId = '';
+      activeNodeKey = '';
+      if (currentRoot) renderMap(currentRoot, { preserveView:true });
+    }
+
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"']/g, ch => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[ch]));
+    }
+
+function updateZoomDisplay(){
+  zoomDisplay.textContent = `${Math.round(zoomLevel * 100)}%`;
+}
+
+function applyZoom(){
+  stageInner.style.transform = `scale(${zoomLevel})`;
+  stageInner.style.width = `${currentLayoutSize.width + CANVAS_BUFFER}px`;
+  stageInner.style.height = `${currentLayoutSize.height + CANVAS_BUFFER}px`;
+  updateZoomDisplay();
+}
+function clamp(value, min, max){
+  return Math.max(min, Math.min(max, value));
+}
+
+function zoomAtPoint(clientX, clientY, direction){
+  const rect = stageWrap.getBoundingClientRect();
+
+  const mouseX = clientX - rect.left;
+  const mouseY = clientY - rect.top;
+
+  const oldZoom = zoomLevel;
+  const nextZoom = clamp(
+    direction > 0 ? zoomLevel + ZOOM_STEP : zoomLevel - ZOOM_STEP,
+    MIN_ZOOM,
+    MAX_ZOOM
+  );
+
+  if (nextZoom === oldZoom) return;
+
+  const worldX = (stageWrap.scrollLeft + mouseX) / oldZoom;
+  const worldY = (stageWrap.scrollTop + mouseY) / oldZoom;
+
+  zoomLevel = Number(nextZoom.toFixed(2));
+  applyZoom();
+
+  stageWrap.scrollLeft = (worldX * zoomLevel) - mouseX;
+  stageWrap.scrollTop = (worldY * zoomLevel) - mouseY;
+}
+
+function recenterView(){
+  const viewW = stageWrap.clientWidth;
+  const viewH = stageWrap.clientHeight;
+
+  const offset = CANVAS_BUFFER * 0.65;
+  const targetX = (offset + (currentLayoutSize.width / 2)) * zoomLevel;
+  const targetY = (offset + (currentLayoutSize.height / 2)) * zoomLevel;
+
+  const scrollLeft = targetX - (viewW / 2);
+  const scrollTop = targetY - (viewH / 2);
+
+  stageWrap.scrollTo({
+    left: Math.max(0, scrollLeft),
+    top: Math.max(0, scrollTop),
+    behavior: 'smooth'
+  });
+}
+
+    function startDrag(e){
+      if (e.button !== 0) return;
+      dragState.isDown = true;
+      dragState.moved = false;
+      dragState.startX = e.clientX;
+      dragState.startY = e.clientY;
+      dragState.startScrollLeft = stageWrap.scrollLeft;
+      dragState.startScrollTop = stageWrap.scrollTop;
+      stageWrap.classList.add('dragging');
+    }
+
+    function moveDrag(e){
+      if (!dragState.isDown) return;
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        dragState.moved = true;
+      }
+
+      stageWrap.scrollLeft = dragState.startScrollLeft - dx;
+      stageWrap.scrollTop = dragState.startScrollTop - dy;
+    }
+
+    function endDrag(){
+      if (!dragState.isDown) return;
+      dragState.isDown = false;
+      stageWrap.classList.remove('dragging');
+
+      setTimeout(() => {
+        dragState.moved = false;
+      }, 0);
+    }
+
+deferInput.addEventListener('input', () => {
+  if (!activeNodeKey) return;
+  setNodeDefer(activeNodeKey, deferInput.value);
+  if (currentRoot) {
+    recomputeAbsoluteLayers(currentRoot, 1);
+    renderMap(currentRoot, { preserveView:true });
+    if (activeNodeId) openNodeOverlay(activeNodeId);
+  }
+});
+
+doneInput.addEventListener('change', () => {
+  if (!activeNodeKey) return;
+  const current = getNodeState(activeNodeKey);
+  setNodeState(activeNodeKey, {
+    done: doneInput.checked,
+    focus: current.focus
+  });
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+    if (activeNodeId) openNodeOverlay(activeNodeId);
+  }
+});
+
+focusInput.addEventListener('change', () => {
+  if (!activeNodeKey) return;
+  const current = getNodeState(activeNodeKey);
+  setNodeState(activeNodeKey, {
+    done: current.done,
+    focus: focusInput.checked
+  });
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+    if (activeNodeId) openNodeOverlay(activeNodeId);
+  }
+});
+
+centerInput.addEventListener('change', () => {
+  if (!activeNodeKey) return;
+
+  centerNodeKey = centerInput.checked ? activeNodeKey : '';
+  saveCenterNodeKey();
+
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+    if (activeNodeId) openNodeOverlay(activeNodeId);
+  }
+});
+
+stageWrap.addEventListener('mousedown', startDrag);
+window.addEventListener('mousemove', moveDrag);
+window.addEventListener('mouseup', endDrag);
+stageWrap.addEventListener('mouseleave', endDrag);
+
+stageWrap.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const direction = e.deltaY < 0 ? 1 : -1;
+  zoomAtPoint(e.clientX, e.clientY, direction);
+}, { passive:false });
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const raw = JSON.parse(text);
+        const root = normalizeBook(raw);
+
+        if (!root) {
+          alert('That file does not look like a valid Mind Library book export.');
+          return;
+        }
+
+        activeNodeId = '';
+        activeNodeKey = '';
+        recomputeAbsoluteLayers(root, 1);
+        renderMap(root);
+      } catch (err) {
+        console.error(err);
+        alert('Could not read that JSON file.');
+      }
+    });
+
+    importStateInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      if (!currentRoot) {
+        alert('Load a book first, then import map state.');
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        const raw = JSON.parse(text);
+
+        applyImportedMapState(raw);
+        recomputeAbsoluteLayers(currentRoot, 1);
+        renderMap(currentRoot);
+      } catch (err) {
+        console.error(err);
+        alert('Could not import that map state file.');
+      }
+    });
+
+    sampleBtn.addEventListener('click', () => {
+      activeNodeId = '';
+      activeNodeKey = '';
+      applyZoom();
+      const sampleRoot = normalizeBook(SAMPLE);
+      recomputeAbsoluteLayers(sampleRoot, 1);
+      renderMap(sampleRoot);
+    });
+
+    fitBtn.addEventListener('click', recenterView);
+    exportStateBtn.addEventListener('click', exportMapState);
+    importStateBtn.addEventListener('click', () => {
+      if (!currentRoot) {
+        alert('Load a book first, then import map state.');
+        return;
+      }
+      importStateInput.value = '';
+      importStateInput.click();
+    });
+    printVersionBtn.addEventListener('click', openPrintVersion);
+
+focusMode.addEventListener('change', () => {
+  focusModeEnabled = focusMode.checked;
+  saveFocusMode();
+  if (currentRoot) renderMap(currentRoot, { preserveView:true });
+});
+
+useLayerColors.addEventListener('change', () => {
+  layerColorMode = useLayerColors.checked;
+  saveUseLayerColors();
+  if (currentRoot) renderMap(currentRoot, { preserveView:true });
+});
+
+ringGapInput.addEventListener('input', () => {
+  const value = Math.max(60, Math.floor(Number(ringGapInput.value) || 180));
+  ringGapValue = value;
+  saveRingGap();
+  if (currentRoot) renderMap(currentRoot, { preserveView:true });
+});
+
+labelWrapInput.addEventListener('input', () => {
+  const value = Math.max(6, Math.floor(Number(labelWrapInput.value) || 15));
+  labelWrapValue = value;
+  saveLabelWrap();
+  if (currentRoot) renderMap(currentRoot, { preserveView:true });
+});
+
+printScaleInput.addEventListener('input', () => {
+  const value = Math.max(25, Math.floor(Number(printScaleInput.value) || 100));
+  printScaleValue = value;
+  savePrintScale();
+});
+
+focusFadeInput.addEventListener('input', () => {
+  const rawValue = Number(focusFadeInput.value);
+  const safeValue = Number.isFinite(rawValue)
+    ? Math.max(0, Math.min(100, Math.round(rawValue / 2) * 2))
+    : 18;
+
+  focusFadeValue = safeValue;
+  focusFadeInput.value = String(safeValue);
+  saveFocusFade();
+
+  if (currentRoot && focusModeEnabled) {
+    renderMap(currentRoot, { preserveView:true });
+  }
+});
+
+sidebarToggle.addEventListener('click', () => {
+      sidebarCollapsed = !sidebarCollapsed;
+      saveSidebarCollapsed();
+      applySidebarState();
+    });
+
+    closeOverlayBtn.addEventListener('click', closeOverlay);
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overlay.classList.contains('open')) closeOverlay();
+    });
+
+applySidebarState();
+focusMode.checked = focusModeEnabled;
+useLayerColors.checked = layerColorMode;
+ringGapInput.value = String(ringGapValue);
+labelWrapInput.value = String(labelWrapValue);
+printScaleInput.value = String(printScaleValue);
+focusFadeInput.value = String(focusFadeValue);
+applyZoom();
+const initialRoot = normalizeBook(SAMPLE);
+recomputeAbsoluteLayers(initialRoot, 1);
+renderMap(initialRoot);
+
+  </script>
+</body>
+</html>
