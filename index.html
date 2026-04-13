@@ -60,12 +60,33 @@
       line-height:1.4;
     }
 
-    .controls{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-    }
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.headerRight{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+}
+
+.topbarToggle{
+  width:32px;
+  height:32px;
+  border-radius:999px;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+body.topbarCollapsed .controls{
+  display:none;
+}
 
     button,input,select{
       background:#0f1115;
@@ -517,20 +538,24 @@ svg{
         <h1>Mind Library Network Map</h1>
         <div class="sub">Import an exported book JSON from Mind Library and view its structure as a full radial dependency map.</div>
       </div>
-<div class="controls">
-  <select id="profileSelect" title="Profile"></select>
-  <button id="addProfileBtn" type="button">＋</button>
-  <button id="renameProfileBtn" type="button">Rename</button>
-  <button id="deleteProfileBtn" type="button">🗑</button>
+<div class="headerRight">
+  <div class="controls">
+    <select id="profileSelect" title="Profile"></select>
+    <button id="addProfileBtn" type="button">＋</button>
+    <button id="renameProfileBtn" type="button">Rename</button>
+    <button id="deleteProfileBtn" type="button">🗑</button>
 
-  <input id="fileInput" type="file" accept="application/json" />
-  <input id="importStateInput" type="file" accept="application/json" style="display:none;" />
-  <button id="sampleBtn" type="button">Load sample</button>
-  <button id="fitBtn" type="button">Recenter</button>
-  <button id="exportStateBtn" type="button">Export Map State</button>
-  <button id="importStateBtn" type="button">Import Map State</button>
-  <button id="printVersionBtn" type="button">Print Version</button>
-  <div id="zoomDisplay" class="pill">100%</div>
+    <input id="fileInput" type="file" accept="application/json" />
+    <input id="importStateInput" type="file" accept="application/json" style="display:none;" />
+    <button id="sampleBtn" type="button">Load sample</button>
+    <button id="fitBtn" type="button">Recenter</button>
+    <button id="exportStateBtn" type="button">Export Map State</button>
+    <button id="importStateBtn" type="button">Import Map State</button>
+    <button id="printVersionBtn" type="button">Print Version</button>
+    <div id="zoomDisplay" class="pill">100%</div>
+  </div>
+
+  <button id="topbarToggle" class="topbarToggle" type="button" aria-label="Hide top controls">▲</button>
 </div>
     </div>
   </header>
@@ -813,6 +838,7 @@ const FOCUS_EXTEND_STORAGE_KEY = keyForProfile('focusExtend');
 const NODE_SCALE_STORAGE_KEY = keyForProfile('nodeScale');
 const IGNORE_DEFER_STORAGE_KEY = keyForProfile('ignoreDefer');
 const BOOK_STORAGE_KEY = keyForProfile('book');
+const TOPBAR_COLLAPSED_STORAGE_KEY = 'mindLibraryNetworkMap.topbarCollapsed.v1';
 
 const profileSelect = document.getElementById('profileSelect');
 const addProfileBtn = document.getElementById('addProfileBtn');
@@ -865,8 +891,8 @@ const centerInput = document.getElementById('centerInput');
 const zoomDisplay = document.getElementById('zoomDisplay');
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
+const topbarToggle = document.getElementById('topbarToggle');
 const app = document.getElementById('app');
-
 function rebuildProfileSelect(){
   profileSelect.innerHTML = '';
 
@@ -904,6 +930,7 @@ let dragState = {
     let layerColors = loadLayerColors();
     let layerColorMode = loadUseLayerColors();
 let sidebarCollapsed = loadSidebarCollapsed();
+let topbarCollapsed = loadTopbarCollapsed();
 let ringGapValue = loadRingGap();
 let labelWrapValue = loadLabelWrap();
 let printScaleValue = loadPrintScale();
@@ -1008,21 +1035,37 @@ let centerNodeKey = loadCenterNodeKey();
       }
     }
 
-    function loadSidebarCollapsed(){
-      try{
-        return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
-      }catch{
-        return false;
-      }
-    }
+function loadSidebarCollapsed(){
+  try{
+    return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+  }catch{
+    return false;
+  }
+}
 
-    function saveSidebarCollapsed(){
-      try{
-        localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
-      }catch(err){
-        console.warn('Could not save sidebar state.', err);
-      }
-    }
+function saveSidebarCollapsed(){
+  try{
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
+  }catch(err){
+    console.warn('Could not save sidebar state.', err);
+  }
+}
+
+function loadTopbarCollapsed(){
+  try{
+    return localStorage.getItem(TOPBAR_COLLAPSED_STORAGE_KEY) === 'true';
+  }catch{
+    return false;
+  }
+}
+
+function saveTopbarCollapsed(){
+  try{
+    localStorage.setItem(TOPBAR_COLLAPSED_STORAGE_KEY, String(topbarCollapsed));
+  }catch(err){
+    console.warn('Could not save topbar state.', err);
+  }
+}
 
     function loadRingGap(){
       try{
@@ -1574,7 +1617,8 @@ function openPrintVersion(){
   printWindow.document.close();
 }
 
-function applySidebarState(){  if (sidebarCollapsed) {
+function applySidebarState(){
+  if (sidebarCollapsed) {
     app.classList.add('sidebarCollapsed');
     sidebarToggle.textContent = '▶';
     sidebarToggle.setAttribute('aria-label', 'Show sidebar');
@@ -1582,6 +1626,18 @@ function applySidebarState(){  if (sidebarCollapsed) {
     app.classList.remove('sidebarCollapsed');
     sidebarToggle.textContent = '◀';
     sidebarToggle.setAttribute('aria-label', 'Hide sidebar');
+  }
+}
+
+function applyTopbarState(){
+  if (topbarCollapsed) {
+    document.body.classList.add('topbarCollapsed');
+    topbarToggle.textContent = '▼';
+    topbarToggle.setAttribute('aria-label', 'Show top controls');
+  } else {
+    document.body.classList.remove('topbarCollapsed');
+    topbarToggle.textContent = '▲';
+    topbarToggle.setAttribute('aria-label', 'Hide top controls');
   }
 }
     function getDisplayColorForNode(node){
@@ -2803,6 +2859,12 @@ sidebarToggle.addEventListener('click', () => {
       applySidebarState();
     });
 
+topbarToggle.addEventListener('click', () => {
+      topbarCollapsed = !topbarCollapsed;
+      saveTopbarCollapsed();
+      applyTopbarState();
+    });
+
     closeOverlayBtn.addEventListener('click', closeOverlay);
 
 overlay.addEventListener('click', (e) => {
@@ -2826,6 +2888,7 @@ window.addEventListener('keydown', (e) => {
 
 rebuildProfileSelect();
 applySidebarState();
+applyTopbarState();
 focusMode.checked = focusModeEnabled;
 useLayerColors.checked = layerColorMode;
 ringGapInput.value = String(ringGapValue);
