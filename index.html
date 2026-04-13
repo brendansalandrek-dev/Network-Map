@@ -266,18 +266,65 @@
       flex:0 0 auto;
     }
 
-    .treeList{
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.5;
-      white-space:pre-wrap;
-      max-height:260px;
-      overflow:auto;
-      padding:10px;
-      border-radius:12px;
-      background:#11151b;
-      border:1px solid var(--border);
-    }
+.treeList{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.5;
+  white-space:pre-wrap;
+  max-height:260px;
+  overflow:auto;
+  padding:10px;
+  border-radius:12px;
+  background:#11151b;
+  border:1px solid var(--border);
+}
+
+.focusListBox{
+  max-height:320px;
+  overflow:auto;
+  padding:6px 8px;
+  border-radius:12px;
+  background:#11151b;
+  border:1px solid var(--border);
+}
+
+.focusListItem{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  padding:5px 0;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  font-size:12px;
+  color:var(--text);
+}
+
+.focusListItem:last-child{
+  border-bottom:none;
+}
+
+.focusListItem input{
+  margin-top:1px;
+  flex:0 0 auto;
+}
+
+.focusListText{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  min-width:0;
+  line-height:1.25;
+}
+
+.focusListMeta{
+  font-size:11px;
+  color:var(--muted);
+}
+
+.focusListToolbar{
+  display:flex;
+  gap:8px;
+  margin:8px 0 10px;
+}
 
 svg{
   position:absolute;
@@ -471,6 +518,11 @@ svg{
         <div class="sub">Import an exported book JSON from Mind Library and view its structure as a full radial dependency map.</div>
       </div>
 <div class="controls">
+  <select id="profileSelect" title="Profile"></select>
+  <button id="addProfileBtn" type="button">＋</button>
+  <button id="renameProfileBtn" type="button">Rename</button>
+  <button id="deleteProfileBtn" type="button">🗑</button>
+
   <input id="fileInput" type="file" accept="application/json" />
   <input id="importStateInput" type="file" accept="application/json" style="display:none;" />
   <button id="sampleBtn" type="button">Load sample</button>
@@ -545,11 +597,22 @@ svg{
         <span class="ringGapHint">Default 100</span>
       </label>
 
-      <label class="ringGapRow">
-        <span>Focus fade %</span>
-        <input id="focusFadeInput" type="number" min="0" max="100" step="2" value="18" />
-        <span class="ringGapHint">Default 18</span>
-      </label>
+<label class="ringGapRow">
+  <span>Focus fade %</span>
+  <input id="focusFadeInput" type="number" min="0" max="100" step="2" value="18" />
+  <span class="ringGapHint">Default 18</span>
+</label>
+
+<label class="optionRow">
+  <input id="doneFadeEnabledInput" type="checkbox" />
+  <span>Done fade</span>
+</label>
+
+<label class="ringGapRow">
+  <span>Done fade %</span>
+  <input id="doneFadeInput" type="number" min="0" max="100" step="2" value="30" />
+  <span class="ringGapHint">Default 30</span>
+</label>
 
       <label class="ringGapRow">
         <span>Layer lock</span>
@@ -577,6 +640,15 @@ svg{
       <div id="layerCounts" class="treeList">Load a book export to see node counts by display layer here.</div>
       <div id="layerColorControls" class="layerColorControls"></div>
     </div>
+
+    <div class="card">
+      <h2>Focus list</h2>
+      <div class="hint">Focused nodes that are not marked done. Sorted by layer, then left to right.</div>
+      <div class="focusListToolbar">
+        <button id="openFocusListBtn" type="button">Open larger view</button>
+      </div>
+      <div id="focusList" class="focusListBox">No focused tasks yet.</div>
+    </div>
   </aside>
 
     <main class="stageWrap" id="stageWrap">
@@ -584,6 +656,23 @@ svg{
         <svg id="mapSvg" width="1800" height="1400" viewBox="0 0 1800 1400" aria-label="Mind Library network map"></svg>
       </div>
     </main>
+  </div>
+
+  <div class="overlay" id="focusListOverlay">
+    <div class="modal">
+      <div class="modalHead">
+        <div>
+          <div style="font-size:18px;font-weight:800;">Focus List</div>
+          <div class="hint">Focused nodes that are not done. Sorted by layer, then left to right.</div>
+        </div>
+        <div class="modalActions">
+          <button id="closeFocusListOverlayBtn" type="button">Close</button>
+        </div>
+      </div>
+      <div class="modalBody">
+        <div id="focusListLarge" class="focusListBox" style="max-height:none; min-height:420px;"></div>
+      </div>
+    </div>
   </div>
 
   <div class="overlay" id="overlay">
@@ -605,15 +694,20 @@ svg{
             <span>Done</span>
           </label>
 
-          <label class="optionRow" style="margin:0;">
-            <input id="focusInput" type="checkbox" />
-            <span>Focus</span>
-          </label>
+<label class="optionRow" style="margin:0;">
+  <input id="focusInput" type="checkbox" />
+  <span>Focus</span>
+</label>
 
-          <label class="optionRow" style="margin:0;">
-            <input id="centerInput" type="checkbox" />
-            <span>Center</span>
-          </label>
+<label class="optionRow" style="margin:0;">
+  <input id="hideChildrenInput" type="checkbox" />
+  <span>Hide children</span>
+</label>
+
+<label class="optionRow" style="margin:0;">
+  <input id="centerInput" type="checkbox" />
+  <span>Center</span>
+</label>
 
           <button id="closeOverlayBtn" type="button">Close</button>
         </div>
@@ -624,22 +718,106 @@ svg{
   </div>
 
   <script>
-    const DEFER_STORAGE_KEY = 'mindLibraryNetworkMap.deferByKey.v1';
-    const LAYER_COLORS_STORAGE_KEY = 'mindLibraryNetworkMap.layerColors.v1';
-    const USE_LAYER_COLORS_STORAGE_KEY = 'mindLibraryNetworkMap.useLayerColors.v1';
-    const SIDEBAR_COLLAPSED_STORAGE_KEY = 'mindLibraryNetworkMap.sidebarCollapsed.v1';
-    const RING_GAP_STORAGE_KEY = 'mindLibraryNetworkMap.ringGap.v1';
-    const LABEL_WRAP_STORAGE_KEY = 'mindLibraryNetworkMap.labelWrap.v1';
-const NODE_STATE_STORAGE_KEY = 'mindLibraryNetworkMap.nodeStates.v1';
-const FOCUS_MODE_STORAGE_KEY = 'mindLibraryNetworkMap.focusMode.v1';
-const CENTER_NODE_STORAGE_KEY = 'mindLibraryNetworkMap.centerNode.v1';
-const PRINT_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.printScale.v1';
-const FOCUS_FADE_STORAGE_KEY = 'mindLibraryNetworkMap.focusFade.v1';
-const LAYER_LOCK_STORAGE_KEY = 'mindLibraryNetworkMap.layerLock.v1';
-const FOCUS_EXTEND_STORAGE_KEY = 'mindLibraryNetworkMap.focusExtend.v1';
-const NODE_SCALE_STORAGE_KEY = 'mindLibraryNetworkMap.nodeScale.v1';
-const IGNORE_DEFER_STORAGE_KEY = 'mindLibraryNetworkMap.ignoreDefer.v1';
-const BOOK_STORAGE_KEY = 'mindLibraryNetworkMap.book.v1';
+const PROFILE_META_KEY = 'mindLibraryNetworkMap.profiles.meta.v1';
+
+function loadProfileMeta(){
+  try{
+    const raw = localStorage.getItem(PROFILE_META_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+
+    if (parsed && Array.isArray(parsed.profiles) && parsed.profiles.length) {
+      return {
+        activeId: parsed.activeId || parsed.profiles[0].id,
+        profiles: parsed.profiles.map((p, i) => ({
+          id: String(p.id || `profile-${i + 1}`),
+          name: String(p.name || `Profile ${i + 1}`)
+        }))
+      };
+    }
+  }catch{}
+
+  return {
+    activeId: 'profile-1',
+    profiles: [
+      { id:'profile-1', name:'Profile 1' }
+    ]
+  };
+}
+
+function saveProfileMeta(){
+  try{
+    localStorage.setItem(PROFILE_META_KEY, JSON.stringify(profileMeta));
+  }catch(err){
+    console.warn('Could not save profile metadata.', err);
+  }
+}
+
+let profileMeta = loadProfileMeta();
+
+function getActiveProfileId(){
+  const match = profileMeta.profiles.find(p => p.id === profileMeta.activeId);
+  return match ? match.id : profileMeta.profiles[0].id;
+}
+
+function getActiveProfileName(){
+  const match = profileMeta.profiles.find(p => p.id === profileMeta.activeId);
+  return match ? match.name : 'Profile 1';
+}
+
+function keyForProfile(suffix){
+  const activeId = getActiveProfileId();
+
+  if (activeId === 'profile-1') {
+    const legacyMap = {
+      deferByKey: 'mindLibraryNetworkMap.deferByKey.v1',
+      layerColors: 'mindLibraryNetworkMap.layerColors.v1',
+      useLayerColors: 'mindLibraryNetworkMap.useLayerColors.v1',
+      sidebarCollapsed: 'mindLibraryNetworkMap.sidebarCollapsed.v1',
+      ringGap: 'mindLibraryNetworkMap.ringGap.v1',
+      labelWrap: 'mindLibraryNetworkMap.labelWrap.v1',
+      nodeStates: 'mindLibraryNetworkMap.nodeStates.v1',
+      focusMode: 'mindLibraryNetworkMap.focusMode.v1',
+      centerNode: 'mindLibraryNetworkMap.centerNode.v1',
+      printScale: 'mindLibraryNetworkMap.printScale.v1',
+      focusFade: 'mindLibraryNetworkMap.focusFade.v1',
+      doneFadeEnabled: 'mindLibraryNetworkMap.doneFadeEnabled.v1',
+      doneFade: 'mindLibraryNetworkMap.doneFade.v1',
+      layerLock: 'mindLibraryNetworkMap.layerLock.v1',
+      focusExtend: 'mindLibraryNetworkMap.focusExtend.v1',
+      nodeScale: 'mindLibraryNetworkMap.nodeScale.v1',
+      ignoreDefer: 'mindLibraryNetworkMap.ignoreDefer.v1',
+      book: 'mindLibraryNetworkMap.book.v1'
+    };
+
+    return legacyMap[suffix];
+  }
+
+  return `mindLibraryNetworkMap.${activeId}.${suffix}.v1`;
+}
+
+const DEFER_STORAGE_KEY = keyForProfile('deferByKey');
+const LAYER_COLORS_STORAGE_KEY = keyForProfile('layerColors');
+const USE_LAYER_COLORS_STORAGE_KEY = keyForProfile('useLayerColors');
+const SIDEBAR_COLLAPSED_STORAGE_KEY = keyForProfile('sidebarCollapsed');
+const RING_GAP_STORAGE_KEY = keyForProfile('ringGap');
+const LABEL_WRAP_STORAGE_KEY = keyForProfile('labelWrap');
+const NODE_STATE_STORAGE_KEY = keyForProfile('nodeStates');
+const FOCUS_MODE_STORAGE_KEY = keyForProfile('focusMode');
+const CENTER_NODE_STORAGE_KEY = keyForProfile('centerNode');
+const PRINT_SCALE_STORAGE_KEY = keyForProfile('printScale');
+const FOCUS_FADE_STORAGE_KEY = keyForProfile('focusFade');
+const DONE_FADE_ENABLED_STORAGE_KEY = keyForProfile('doneFadeEnabled');
+const DONE_FADE_STORAGE_KEY = keyForProfile('doneFade');
+const LAYER_LOCK_STORAGE_KEY = keyForProfile('layerLock');
+const FOCUS_EXTEND_STORAGE_KEY = keyForProfile('focusExtend');
+const NODE_SCALE_STORAGE_KEY = keyForProfile('nodeScale');
+const IGNORE_DEFER_STORAGE_KEY = keyForProfile('ignoreDefer');
+const BOOK_STORAGE_KEY = keyForProfile('book');
+
+const profileSelect = document.getElementById('profileSelect');
+const addProfileBtn = document.getElementById('addProfileBtn');
+const renameProfileBtn = document.getElementById('renameProfileBtn');
+const deleteProfileBtn = document.getElementById('deleteProfileBtn');
 
 const fileInput = document.getElementById('fileInput');
 const importStateInput = document.getElementById('importStateInput');
@@ -654,12 +832,19 @@ const currentCenterName = document.getElementById('currentCenterName');
 const treeList = document.getElementById('treeList');
 const layerCounts = document.getElementById('layerCounts');
 const layerColorControls = document.getElementById('layerColorControls');
+const focusList = document.getElementById('focusList');
+const focusListLarge = document.getElementById('focusListLarge');
+const openFocusListBtn = document.getElementById('openFocusListBtn');
+const focusListOverlay = document.getElementById('focusListOverlay');
+const closeFocusListOverlayBtn = document.getElementById('closeFocusListOverlayBtn');
 const focusMode = document.getElementById('focusMode');
 const useLayerColors = document.getElementById('useLayerColors');
 const ringGapInput = document.getElementById('ringGapInput');
 const labelWrapInput = document.getElementById('labelWrapInput');
 const printScaleInput = document.getElementById('printScaleInput');
 const focusFadeInput = document.getElementById('focusFadeInput');
+const doneFadeEnabledInput = document.getElementById('doneFadeEnabledInput');
+const doneFadeInput = document.getElementById('doneFadeInput');
 const layerLockInput = document.getElementById('layerLockInput');
 const focusExtendInput = document.getElementById('focusExtendInput');
 const nodeScaleInput = document.getElementById('nodeScaleInput');
@@ -675,11 +860,25 @@ const modalBody = document.getElementById('modalBody');
 const deferInput = document.getElementById('deferInput');
 const doneInput = document.getElementById('doneInput');
 const focusInput = document.getElementById('focusInput');
+const hideChildrenInput = document.getElementById('hideChildrenInput');
 const centerInput = document.getElementById('centerInput');
 const zoomDisplay = document.getElementById('zoomDisplay');
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const app = document.getElementById('app');
+
+function rebuildProfileSelect(){
+  profileSelect.innerHTML = '';
+
+  profileMeta.profiles.forEach(profile => {
+    const opt = document.createElement('option');
+    opt.value = profile.id;
+    opt.textContent = profile.name;
+    profileSelect.appendChild(opt);
+  });
+
+  profileSelect.value = getActiveProfileId();
+}
 
 let currentRoot = null;
 let renderedNodes = [];
@@ -709,6 +908,8 @@ let ringGapValue = loadRingGap();
 let labelWrapValue = loadLabelWrap();
 let printScaleValue = loadPrintScale();
 let focusFadeValue = loadFocusFade();
+let doneFadeEnabled = loadDoneFadeEnabled();
+let doneFadeValue = loadDoneFade();
 let layerLockValue = loadLayerLock();
 let focusExtendValue = loadFocusExtend();
 let nodeScaleValue = loadNodeScale();
@@ -910,6 +1111,41 @@ function saveFocusFade(){
   }
 }
 
+function loadDoneFadeEnabled(){
+  try{
+    return localStorage.getItem(DONE_FADE_ENABLED_STORAGE_KEY) === 'true';
+  }catch{
+    return false;
+  }
+}
+
+function saveDoneFadeEnabled(){
+  try{
+    localStorage.setItem(DONE_FADE_ENABLED_STORAGE_KEY, String(doneFadeEnabled));
+  }catch(err){
+    console.warn('Could not save done fade enabled state.', err);
+  }
+}
+
+function loadDoneFade(){
+  try{
+    const value = Number(localStorage.getItem(DONE_FADE_STORAGE_KEY));
+    return Number.isFinite(value)
+      ? Math.max(0, Math.min(100, Math.floor(value)))
+      : 30;
+  }catch{
+    return 30;
+  }
+}
+
+function saveDoneFade(){
+  try{
+    localStorage.setItem(DONE_FADE_STORAGE_KEY, String(doneFadeValue));
+  }catch(err){
+    console.warn('Could not save done fade.', err);
+  }
+}
+
 function loadLayerLock(){
   try{
     const value = Number(localStorage.getItem(LAYER_LOCK_STORAGE_KEY));
@@ -1002,14 +1238,18 @@ function saveNodeStates(){
 }
 
 function getNodeState(nodeKey){
-  return nodeStates[nodeKey] || { done:false, focus:false };
+  return nodeStates[nodeKey] || { done:false, focus:false, hideChildren:false };
 }
 
 function setNodeState(nodeKey, nextState){
+  const current = getNodeState(nodeKey);
+
   nodeStates[nodeKey] = {
-    done: !!nextState.done,
-    focus: !!nextState.focus
+    done: !!(nextState.done ?? current.done),
+    focus: !!(nextState.focus ?? current.focus),
+    hideChildren: !!(nextState.hideChildren ?? current.hideChildren)
   };
+
   saveNodeStates();
 }
 
@@ -1059,6 +1299,8 @@ function buildMapStateExport(){
       labelWrapValue,
       printScaleValue,
       focusFadeValue,
+      doneFadeEnabled,
+      doneFadeValue,
       layerLockValue,
       focusExtendValue,
       nodeScaleValue,
@@ -1109,6 +1351,10 @@ function applyImportedMapState(payload){
   focusFadeValue = Number.isFinite(Number(incoming.focusFadeValue))
     ? Math.max(0, Math.min(100, Math.floor(Number(incoming.focusFadeValue))))
     : 18;
+  doneFadeEnabled = !!incoming.doneFadeEnabled;
+  doneFadeValue = Number.isFinite(Number(incoming.doneFadeValue))
+    ? Math.max(0, Math.min(100, Math.floor(Number(incoming.doneFadeValue))))
+    : 30;
   layerLockValue = Number.isFinite(Number(incoming.layerLockValue))
     ? Math.max(0, Math.floor(Number(incoming.layerLockValue)))
     : 0;
@@ -1131,6 +1377,8 @@ function applyImportedMapState(payload){
   saveLabelWrap();
   savePrintScale();
   saveFocusFade();
+  saveDoneFadeEnabled();
+  saveDoneFade();
   saveLayerLock();
   saveFocusExtend();
   saveNodeScale();
@@ -1145,6 +1393,8 @@ function applyImportedMapState(payload){
   labelWrapInput.value = String(labelWrapValue);
   printScaleInput.value = String(printScaleValue);
   focusFadeInput.value = String(focusFadeValue);
+  doneFadeEnabledInput.checked = doneFadeEnabled;
+  doneFadeInput.value = String(doneFadeValue);
   layerLockInput.value = String(layerLockValue);
   focusExtendInput.value = String(focusExtendValue);
   nodeScaleInput.value = String(nodeScaleValue);
@@ -1447,7 +1697,7 @@ function normalizeNode(node, path, inheritedAbsoluteLayer = 1){
     }
 
 function computeLeafWeight(node){
-  if (!node.children.length) return 1;
+  if (!node.children.length || isNodeCollapsed(node)) return 1;
   const total = node.children.reduce((sum, child) => sum + computeLeafWeight(child), 0);
   return Math.max(1, total);
 }
@@ -1562,7 +1812,7 @@ const centerY = height / 2;
           });
         }
 
-        if (!node.children.length) return item;
+        if (!node.children.length || isNodeCollapsed(node)) return item;
 
         const weights = node.children.map(child => computeLeafWeight(child));
         const totalWeight = weights.reduce((sum, value) => sum + value, 0);
@@ -1666,6 +1916,8 @@ function collectDescendantsWithinLayerRange(node, sourceAbsoluteLayer, maxAbsolu
     out.add(node.key);
   }
 
+  if (isNodeCollapsed(node)) return;
+
   for (const child of node.children || []) {
     collectDescendantsWithinLayerRange(child, sourceAbsoluteLayer, maxAbsoluteLayer, out);
   }
@@ -1706,6 +1958,18 @@ function isNodeAllowedByLayerLock(node, visualRootAbsoluteLayer){
 function shouldFadeNode(node, focusVisibleKeys){
   if (!focusModeEnabled) return false;
   return !focusVisibleKeys.has(node.key);
+}
+
+function getDoneFadeOpacity(node){
+  if (!doneFadeEnabled) return 1;
+  const state = getNodeState(node.key);
+  if (!state.done) return 1;
+  return doneFadeValue / 100;
+}
+
+function isNodeCollapsed(node){
+  const state = getNodeState(node.key);
+  return !!state.hideChildren;
 }
 
     function renderMap(root, opts = {}){
@@ -1780,25 +2044,55 @@ for (let layer = 1; layer <= visibleMaxDisplayLayer; layer++) {
         path.setAttribute('class', 'link' + (link.deferred ? ' deferred' : ''));
         path.setAttribute('d', makeLinkPath(s, t));
 
-        const fadeLink = focusModeEnabled && (shouldFadeNode(s, focusVisibleKeys) || shouldFadeNode(t, focusVisibleKeys));
-        path.style.opacity = fadeLink ? String(focusFadeValue / 100) : '1';
+        const focusOpacity = (focusModeEnabled && (shouldFadeNode(s, focusVisibleKeys) || shouldFadeNode(t, focusVisibleKeys)))
+          ? (focusFadeValue / 100)
+          : 1;
+
+        const doneOpacity = Math.min(getDoneFadeOpacity(s), getDoneFadeOpacity(t));
+        path.style.opacity = String(Math.min(focusOpacity, doneOpacity));
 
         linksGroup.appendChild(path);
       });
 
       visibleNodes.forEach(node => {
         const faded = shouldFadeNode(node, focusVisibleKeys);
+        const focusOpacity = faded ? (focusFadeValue / 100) : 1;
+        const doneOpacity = getDoneFadeOpacity(node);
 
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('class', 'node' + (node.id === activeNodeId ? ' active' : ''));
         g.dataset.nodeId = node.id;
         g.setAttribute('transform', `translate(${node.x}, ${node.y})`);
-        g.style.opacity = faded ? String(focusFadeValue / 100) : '1';
+        g.style.opacity = String(Math.min(focusOpacity, doneOpacity));
 
-        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('r', getNodeRadius(node));
-        circle.setAttribute('fill', getDisplayColorForNode(node));
-        g.appendChild(circle);
+        const radius = getNodeRadius(node);
+
+        if (isNodeCollapsed(node) && node.childCount > 0) {
+          const hitCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          hitCircle.setAttribute('r', Math.max(radius, 14 * getNodeScaleMultiplier()));
+          hitCircle.setAttribute('fill', 'transparent');
+          hitCircle.setAttribute('stroke', 'none');
+          hitCircle.style.pointerEvents = 'all';
+          g.appendChild(hitCircle);
+
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('r', radius);
+          circle.setAttribute('fill', 'none');
+const ringLayerNumber = node.absoluteLayer || (node.displayLayer + 1);
+const ringColor = layerColorMode
+  ? (layerColors[ringLayerNumber] || getDisplayColorForNode(node))
+  : getDisplayColorForNode(node);
+
+circle.style.stroke = ringColor;
+circle.style.strokeWidth = String(Math.max(4, 4 * getNodeScaleMultiplier()));
+circle.style.pointerEvents = 'none';
+g.appendChild(circle);
+        } else {
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('r', radius);
+          circle.setAttribute('fill', getDisplayColorForNode(node));
+          g.appendChild(circle);
+        }
 
         if (node.defer > 0) {
 const badge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -1857,7 +2151,7 @@ g.appendChild(badge);
     }
 
 function updateSidebar(root, nodes){
-  loadedName.textContent = savedBook ? root.name + ' (Saved)' : root.name;
+  loadedName.textContent = `${savedBook ? root.name + ' (Saved)' : root.name} • ${getActiveProfileName()}`;
   const pageCount = countPages(root);
   const noteCount = countNonEmptyPages(root);
   const visualRoot = getVisualRoot(root);
@@ -1867,14 +2161,89 @@ function updateSidebar(root, nodes){
   treeList.textContent = makeTreeText(root, 0);
   layerCounts.textContent = makeLayerCountsText(nodes);
   renderLayerColorControls(nodes);
+  renderFocusList(nodes);
 }
 
 function makeTreeText(node, depth){
   const defer = getNodeDefer(node);
-  const suffix = defer > 0 ? ` (defer +${defer})` : '';
+  const collapsed = isNodeCollapsed(node) && node.children.length > 0;
+  const suffixParts = [];
+  if (defer > 0) suffixParts.push(`defer +${defer}`);
+  if (collapsed) suffixParts.push('children hidden');
+
+  const suffix = suffixParts.length ? ` (${suffixParts.join(' • ')})` : '';
   const line = `${'  '.repeat(depth)}• ${node.name}${suffix}`;
+
+  if (collapsed) return line;
+
   const children = node.children.map(child => makeTreeText(child, depth + 1));
   return [line, ...children].join('\n');
+}
+
+function buildFocusListItems(nodes){
+  return nodes
+    .filter(node => {
+      const state = getNodeState(node.key);
+      return state.focus && !state.done;
+    })
+    .sort((a, b) => {
+      const layerA = a.absoluteLayer || (a.displayLayer + 1);
+      const layerB = b.absoluteLayer || (b.displayLayer + 1);
+      if (layerA !== layerB) return layerA - layerB;
+      if (a.x !== b.x) return a.x - b.x;
+      return a.y - b.y;
+    });
+}
+
+function buildFocusListHtml(items){
+  if (!items.length) {
+    return '<div class="hint">No focused tasks yet.</div>';
+  }
+
+  return items.map((node) => {
+    const layerNumber = node.absoluteLayer || (node.displayLayer + 1);
+    return `
+      <label class="focusListItem">
+        <input type="checkbox" data-focus-list-done="${escapeHtml(node.key)}" />
+        <span class="focusListText">
+          <span>${escapeHtml(node.name)}</span>
+          <span class="focusListMeta">Layer ${layerNumber}</span>
+        </span>
+      </label>
+    `;
+  }).join('');
+}
+
+function bindFocusListEvents(container){
+  if (!container) return;
+
+  container.querySelectorAll('input[data-focus-list-done]').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const nodeKey = e.target.dataset.focusListDone;
+      const current = getNodeState(nodeKey);
+      setNodeState(nodeKey, {
+        done: e.target.checked,
+        focus: current.focus,
+        hideChildren: current.hideChildren
+      });
+
+      if (currentRoot) {
+        renderMap(currentRoot, { preserveView:true });
+        if (activeNodeId) openNodeOverlay(activeNodeId);
+      }
+    });
+  });
+}
+
+function renderFocusList(nodes){
+  const items = buildFocusListItems(nodes);
+  const html = buildFocusListHtml(items);
+
+  focusList.innerHTML = html;
+  focusListLarge.innerHTML = html;
+
+  bindFocusListEvents(focusList);
+  bindFocusListEvents(focusListLarge);
 }
 
 function makeLayerCountsText(nodes){
@@ -1965,6 +2334,7 @@ function renderLayerColorControls(nodes){
       deferInput.value = String(node.defer || 0);
       doneInput.checked = !!state.done;
       focusInput.checked = !!state.focus;
+      hideChildrenInput.checked = !!state.hideChildren;
       centerInput.checked = centerNodeKey === node.key;
 
       if (!node.pages.length) {
@@ -2109,7 +2479,8 @@ doneInput.addEventListener('change', () => {
   const current = getNodeState(activeNodeKey);
   setNodeState(activeNodeKey, {
     done: doneInput.checked,
-    focus: current.focus
+    focus: current.focus,
+    hideChildren: current.hideChildren
   });
   if (currentRoot) {
     renderMap(currentRoot, { preserveView:true });
@@ -2122,7 +2493,22 @@ focusInput.addEventListener('change', () => {
   const current = getNodeState(activeNodeKey);
   setNodeState(activeNodeKey, {
     done: current.done,
-    focus: focusInput.checked
+    focus: focusInput.checked,
+    hideChildren: current.hideChildren
+  });
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+    if (activeNodeId) openNodeOverlay(activeNodeId);
+  }
+});
+
+hideChildrenInput.addEventListener('change', () => {
+  if (!activeNodeKey) return;
+  const current = getNodeState(activeNodeKey);
+  setNodeState(activeNodeKey, {
+    done: current.done,
+    focus: current.focus,
+    hideChildren: hideChildrenInput.checked
   });
   if (currentRoot) {
     renderMap(currentRoot, { preserveView:true });
@@ -2219,7 +2605,15 @@ const root = normalizeBook(raw);
       importStateInput.value = '';
       importStateInput.click();
     });
-    printVersionBtn.addEventListener('click', openPrintVersion);
+printVersionBtn.addEventListener('click', openPrintVersion);
+
+openFocusListBtn.addEventListener('click', () => {
+  focusListOverlay.classList.add('open');
+});
+
+closeFocusListOverlayBtn.addEventListener('click', () => {
+  focusListOverlay.classList.remove('open');
+});
 
 focusMode.addEventListener('change', () => {
   focusModeEnabled = focusMode.checked;
@@ -2263,7 +2657,31 @@ focusFadeInput.addEventListener('input', () => {
   focusFadeInput.value = String(safeValue);
   saveFocusFade();
 
-  if (currentRoot && focusModeEnabled) {
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+  }
+});
+
+doneFadeEnabledInput.addEventListener('change', () => {
+  doneFadeEnabled = doneFadeEnabledInput.checked;
+  saveDoneFadeEnabled();
+
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+  }
+});
+
+doneFadeInput.addEventListener('input', () => {
+  const rawValue = Number(doneFadeInput.value);
+  const safeValue = Number.isFinite(rawValue)
+    ? Math.max(0, Math.min(100, Math.round(rawValue / 2) * 2))
+    : 30;
+
+  doneFadeValue = safeValue;
+  doneFadeInput.value = String(safeValue);
+  saveDoneFade();
+
+  if (currentRoot) {
     renderMap(currentRoot, { preserveView:true });
   }
 });
@@ -2324,6 +2742,61 @@ ignoreDeferInput.addEventListener('change', () => {
   }
 });
 
+profileSelect.addEventListener('change', () => {
+  profileMeta.activeId = profileSelect.value;
+  saveProfileMeta();
+  location.reload();
+});
+
+addProfileBtn.addEventListener('click', () => {
+  const nextNumber = profileMeta.profiles.length + 1;
+  const newId = `profile-${Date.now()}`;
+  profileMeta.profiles.push({
+    id: newId,
+    name: `Profile ${nextNumber}`
+  });
+  profileMeta.activeId = newId;
+  saveProfileMeta();
+  location.reload();
+});
+
+renameProfileBtn.addEventListener('click', () => {
+  const current = profileMeta.profiles.find(p => p.id === getActiveProfileId());
+  if (!current) return;
+
+  const nextName = prompt('Rename profile:', current.name);
+  if (!nextName) return;
+
+  const clean = nextName.trim();
+  if (!clean) return;
+
+  current.name = clean;
+  saveProfileMeta();
+  rebuildProfileSelect();
+});
+
+deleteProfileBtn.addEventListener('click', () => {
+if (profileMeta.profiles.length <= 1) {
+  alert('You must keep at least one profile.');
+  return;
+}
+
+if (getActiveProfileId() === 'profile-1') {
+  alert('Profile 1 cannot be deleted.');
+  return;
+}
+
+  const currentId = getActiveProfileId();
+  const currentName = getActiveProfileName();
+  const ok = confirm(`Delete "${currentName}"? This removes only the profile entry. Existing saved data for that profile will no longer be used.`);
+  if (!ok) return;
+
+  profileMeta.profiles = profileMeta.profiles.filter(p => p.id !== currentId);
+  profileMeta.activeId = profileMeta.profiles[0].id;
+  saveProfileMeta();
+  location.reload();
+});
+
 sidebarToggle.addEventListener('click', () => {
       sidebarCollapsed = !sidebarCollapsed;
       saveSidebarCollapsed();
@@ -2332,14 +2805,26 @@ sidebarToggle.addEventListener('click', () => {
 
     closeOverlayBtn.addEventListener('click', closeOverlay);
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) closeOverlay();
-    });
+overlay.addEventListener('click', (e) => {
+  if (e.target === overlay) closeOverlay();
+});
 
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && overlay.classList.contains('open')) closeOverlay();
-    });
+focusListOverlay.addEventListener('click', (e) => {
+  if (e.target === focusListOverlay) {
+    focusListOverlay.classList.remove('open');
+  }
+});
 
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+
+  if (overlay.classList.contains('open')) closeOverlay();
+  if (focusListOverlay.classList.contains('open')) {
+    focusListOverlay.classList.remove('open');
+  }
+});
+
+rebuildProfileSelect();
 applySidebarState();
 focusMode.checked = focusModeEnabled;
 useLayerColors.checked = layerColorMode;
@@ -2347,6 +2832,8 @@ ringGapInput.value = String(ringGapValue);
 labelWrapInput.value = String(labelWrapValue);
 printScaleInput.value = String(printScaleValue);
 focusFadeInput.value = String(focusFadeValue);
+doneFadeEnabledInput.checked = doneFadeEnabled;
+doneFadeInput.value = String(doneFadeValue);
 layerLockInput.value = String(layerLockValue);
 focusExtendInput.value = String(focusExtendValue);
 nodeScaleInput.value = String(nodeScaleValue);
