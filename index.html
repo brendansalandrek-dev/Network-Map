@@ -1786,6 +1786,7 @@ function recomputeAbsoluteLayers(node, inheritedAbsoluteLayer = 1){
 function flattenTreeRadial(root){
   const nodes = [];
   const links = [];
+  let traversalOrder = 0;
 
 const startAngleDeg = -90;
 const endAngleDeg = 270;
@@ -1855,6 +1856,7 @@ const centerY = height / 2;
           pages: node.pages,
           childCount: node.children.length,
           defer,
+          traversalOrder: traversalOrder++,
           ref: node
         };
 
@@ -2246,8 +2248,7 @@ function buildFocusListItems(nodes){
       const layerA = a.absoluteLayer || (a.displayLayer + 1);
       const layerB = b.absoluteLayer || (b.displayLayer + 1);
       if (layerA !== layerB) return layerA - layerB;
-      if (a.x !== b.x) return a.x - b.x;
-      return a.y - b.y;
+      return a.traversalOrder - b.traversalOrder;
     });
 }
 
