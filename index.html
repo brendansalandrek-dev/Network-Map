@@ -669,6 +669,12 @@ svg{
     <div class="card">
       <h2>Focus list</h2>
       <div class="hint">Focused nodes that are not marked done. Sorted by layer, then left to right.</div>
+
+      <label class="optionRow" style="margin:8px 0 6px;">
+        <input id="focusListShowChainInput" type="checkbox" />
+        <span>Show parent chain</span>
+      </label>
+
       <div class="focusListToolbar">
         <button id="openFocusListBtn" type="button">Open larger view</button>
       </div>
@@ -811,7 +817,8 @@ function keyForProfile(suffix){
       focusExtend: 'mindLibraryNetworkMap.focusExtend.v1',
       nodeScale: 'mindLibraryNetworkMap.nodeScale.v1',
       ignoreDefer: 'mindLibraryNetworkMap.ignoreDefer.v1',
-      book: 'mindLibraryNetworkMap.book.v1'
+      book: 'mindLibraryNetworkMap.book.v1',
+      focusListShowChain: 'mindLibraryNetworkMap.focusListShowChain.v1'
     };
 
     return legacyMap[suffix];
@@ -838,6 +845,7 @@ const FOCUS_EXTEND_STORAGE_KEY = keyForProfile('focusExtend');
 const NODE_SCALE_STORAGE_KEY = keyForProfile('nodeScale');
 const IGNORE_DEFER_STORAGE_KEY = keyForProfile('ignoreDefer');
 const BOOK_STORAGE_KEY = keyForProfile('book');
+const FOCUS_LIST_SHOW_CHAIN_STORAGE_KEY = keyForProfile('focusListShowChain');
 const TOPBAR_COLLAPSED_STORAGE_KEY = 'mindLibraryNetworkMap.topbarCollapsed.v1';
 
 const profileSelect = document.getElementById('profileSelect');
@@ -860,6 +868,7 @@ const layerCounts = document.getElementById('layerCounts');
 const layerColorControls = document.getElementById('layerColorControls');
 const focusList = document.getElementById('focusList');
 const focusListLarge = document.getElementById('focusListLarge');
+const focusListShowChainInput = document.getElementById('focusListShowChainInput');
 const openFocusListBtn = document.getElementById('openFocusListBtn');
 const focusListOverlay = document.getElementById('focusListOverlay');
 const closeFocusListOverlayBtn = document.getElementById('closeFocusListOverlayBtn');
@@ -944,7 +953,7 @@ let ignoreDeferValue = loadIgnoreDefer();
 let nodeStates = loadNodeStates();
 let focusModeEnabled = loadFocusMode();
 let centerNodeKey = loadCenterNodeKey();
-
+let focusListShowChain = loadFocusListShowChain();
     const SAMPLE = {
       meta:{app:'Mind Library', type:'single-book'},
       book:{
@@ -1328,6 +1337,22 @@ function saveCenterNodeKey(){
   }
 }
 
+function loadFocusListShowChain(){
+  try{
+    return localStorage.getItem(FOCUS_LIST_SHOW_CHAIN_STORAGE_KEY) === 'true';
+  }catch{
+    return false;
+  }
+}
+
+function saveFocusListShowChain(){
+  try{
+    localStorage.setItem(FOCUS_LIST_SHOW_CHAIN_STORAGE_KEY, String(focusListShowChain));
+  }catch(err){
+    console.warn('Could not save focus list chain setting.', err);
+  }
+}
+
 function buildMapStateExport(){
   return {
     type: 'mind-library-network-map-state',
@@ -1430,9 +1455,10 @@ function applyImportedMapState(payload){
   saveFocusMode();
   saveCenterNodeKey();
 
-  focusMode.checked = focusModeEnabled;
-  useLayerColors.checked = layerColorMode;
-  ringGapInput.value = String(ringGapValue);
+focusMode.checked = focusModeEnabled;
+focusListShowChainInput.checked = focusListShowChain;
+useLayerColors.checked = layerColorMode;
+ringGapInput.value = String(ringGapValue);
   labelWrapInput.value = String(labelWrapValue);
   printScaleInput.value = String(printScaleValue);
   focusFadeInput.value = String(focusFadeValue);
@@ -2238,6 +2264,16 @@ function makeTreeText(node, depth){
   return [line, ...children].join('\n');
 }
 
+function getFocusListChainText(node){
+  const parts = String(node.key || '')
+    .replace(/^path:/, '')
+    .split(' > ')
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  return parts.join(' › ');
+}
+
 function buildFocusListItems(nodes){
   return nodes
     .filter(node => {
@@ -2259,12 +2295,15 @@ function buildFocusListHtml(items){
 
   return items.map((node) => {
     const layerNumber = node.absoluteLayer || (node.displayLayer + 1);
+    const chainText = getFocusListChainText(node);
+
     return `
       <label class="focusListItem">
         <input type="checkbox" data-focus-list-done="${escapeHtml(node.key)}" />
         <span class="focusListText">
           <span>${escapeHtml(node.name)}</span>
           <span class="focusListMeta">Layer ${layerNumber}</span>
+          ${focusListShowChain ? `<span class="focusListMeta">${escapeHtml(chainText)}</span>` : ''}
         </span>
       </label>
     `;
@@ -2664,6 +2703,15 @@ const root = normalizeBook(raw);
     });
 printVersionBtn.addEventListener('click', openPrintVersion);
 
+focusListShowChainInput.addEventListener('change', () => {
+  focusListShowChain = focusListShowChainInput.checked;
+  saveFocusListShowChain();
+
+  if (currentRoot) {
+    renderMap(currentRoot, { preserveView:true });
+  }
+});
+
 openFocusListBtn.addEventListener('click', () => {
   focusListOverlay.classList.add('open');
 });
@@ -2891,6 +2939,7 @@ rebuildProfileSelect();
 applySidebarState();
 applyTopbarState();
 focusMode.checked = focusModeEnabled;
+focusListShowChainInput.checked = focusListShowChain;
 useLayerColors.checked = layerColorMode;
 ringGapInput.value = String(ringGapValue);
 labelWrapInput.value = String(labelWrapValue);
